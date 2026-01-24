@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>工数管理</title>
+    <style>
+        :root {
+            --border: #bcbcbc;
+            --header-bg: #f2f2f2;
+            --excel-blue: #2f5597;
+            --excel-group-bg: #d9d9d9;
+            --range-blue: #eaf4ff; 
+            --work-blue: #5b9bd5;  
+            --today-bg: #fff9c4;    
+            --today-col-bg: rgba(255, 249, 196, 0.3);
+            --today-line: #ff0000;  
+            --row-h: 34px;
+            --day-w: 55px; 
+            /* 修正: 操作列を詰めた分、全体の幅も調整しました (1170px -> 1140px) */
+            --wbs-w: 1120px; 
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: "Meiryo", "MS PGothic", sans-serif; margin: 15px; font-size: 12px; background: #f9f9f9; color: #333; overflow: hidden; }
+        
+        .controls { margin-bottom: 10px; display: flex; gap: 8px; align-items: center; white-space: nowrap; flex-wrap: nowrap; }
+        button { padding: 5px 15px; cursor: pointer; border: 1px solid #999; background: #fff; border-radius: 2px; font-size: 12px; }
+        button.primary { background: var(--excel-blue); color: white; border: none; }
+
+        .usage-guide {
+            margin-left: auto;
+            display: flex;
+            gap: 15px;
+            padding: 5px 12px;
+            background: #eee;
+            border-radius: 4px;
+            color: #555;
+            font-size: 11px;
+            border: 1px solid #ddd;
+        }
+        .guide-item { display: flex; align-items: center; gap: 4px; }
+        .guide-icon { font-size: 14px; }
+
+        .main-container {
+            display: flex;
+            border: 2px solid #888;
+            background: #fff;
+            overflow: hidden;
+            height: calc(100vh - 80px);
+        }
+
+        .wbs-area {
+            width: var(--wbs-w);
+            flex-shrink: 0;
+            border-right: 2px solid #444; 
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: #fff;
+            z-index: 10;
+        }
+
+        #wbs-body-container { overflow: hidden; flex-grow: 1; }
+        
+        #wbs-body { padding-bottom: 20px; }
+
+        .gantt-area {
+            flex-grow: 1;
+            overflow: auto;
+            position: relative;
+            background: #fff;
+        }
+
+        .row { display: flex; width: 100%; }
+        
+        .cell {
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            height: var(--row-h);
+            display: flex;
+            align-items: center;
+            padding: 0 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #fff;
+        }
+
+        .header { 
+            position: sticky; 
+            top: 0; 
+            z-index: 40; 
+            background: var(--header-bg); 
+            box-shadow: 0 1px 0 #888; 
+        }
+        .header .cell { 
+            background: var(--header-bg); 
+            justify-content: center; 
+            border-bottom: 1px solid #888;
+        }
+
+        /* フィルタメニューが隠れないようにoverflow設定を変更 */
+        .header .col-owner, 
+        .header .col-date,
+        .header .col-progress { overflow: visible !important; position: relative; } 
+
+        .col-no { width: 45px; justify-content: center !important; background: #f0f0f0 !important; font-weight: bold; }
+        .col-title { width: 220px; }
+        .col-owner { width: 90px; } 
+        .col-date { width: 135px; } 
+
+        .col-h { width: 75px; justify-content: center; padding-right: 2px; }
+        
+        .col-ratio { width: 55px; justify-content: center; font-size: 11px; }
+        .col-progress { width: 75px; justify-content: center; }
+        .col-op { width: 140px; justify-content: center; border-right: none !important; gap: 6px; padding: 0 2px; }
+
+        /* 進捗の見た目調整 */
+        .progress-input-wrapper { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+        .progress-input-wrapper input { width: 100%; text-align: center; }
+
+        .day-cell { width: var(--day-w); justify-content: center; padding: 0 !important; } 
+        .is-today-h { background: var(--today-bg) !important; color: #d97706 !important; font-weight: bold; border-bottom: 1px solid #888 !important; }
+        .is-today-col { background-color: var(--today-col-bg) !important; }
+
+        .group-row .cell { background: var(--excel-group-bg) !important; font-weight: bold; }
+        .in-range { background: var(--range-blue) !important; }
+        .sat { color: #007bff; }
+        .sun { color: #dc3545; }
+
+        .today-line {
+            position: absolute; top: 0; bottom: 0; 
+            width: 2px;
+            background: var(--today-line); 
+            z-index: 5; 
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        input { width: 100%; border: none; outline: none; background: transparent; font-size: 12px; font-family: inherit; }
+        input[type="number"] { text-align: center; }
+
+        .date-display-text { font-size: 12px; padding-left: 2px; color: #333; cursor: default; white-space: nowrap; }
+        .date-input { cursor: pointer; text-align: left; width: 100%; }
+        
+        .hour-input { height: 100%; font-size: 11px; padding-right: 2px !important; width: 100%; color: inherit; cursor: pointer; }
+
+        .icon-btn {
+            width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; border-radius: 4px; border: 1px solid #ccc; transition: all 0.2s; background: #fff; padding: 0; flex-shrink: 0;
+        }
+        .icon-btn svg { width: 16px; height: 16px; fill: #666; }
+        .icon-btn:hover { background: #f0f0f0; border-color: #888; }
+        .icon-group:hover { background: #e2e8f0; }
+        .icon-delete:hover { background: #fee2e2; }
+        .icon-delete:hover svg { fill: #dc2626; }
+        .icon-timer.start { border-color: #16a34a; }
+        .icon-timer.start svg { fill: #16a34a; }
+        .icon-timer.stop { border-color: #dc2626; background: #fef2f2; }
+        .icon-timer.stop svg { fill: #dc2626; }
+        .icon-memo.has-content { border-color: #2f5597; background: #eaf4ff; }
+        .icon-memo.has-content svg { fill: #2f5597; }
+
+        .tracking-active { background: #fff1f2 !important; }
+
+        .icon-ref {
+            font-size: 10px; color: #555; cursor: pointer; 
+            width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+            border: 1px solid #ccc; border-radius: 3px; background: #eee; margin-left: 2px;
+        }
+        .icon-ref:hover { background: #e0f2fe; border-color: var(--work-blue); color: var(--excel-blue); }
+
+        .filter-icon { 
+            cursor: pointer; margin-left: 2px; color: #666; font-size: 10px; 
+            border: 1px solid #999; border-radius: 3px; padding: 1px 2px; background: #eee; flex-shrink: 0;
+            display: inline-block; line-height: 1;
+        }
+        .filter-icon:hover { background: #ddd; }
+        .filter-active { background: var(--excel-blue); color: #fff; border-color: var(--excel-blue); }
+        
+        .filter-menu {
+            position: absolute; top: 100%; left: 0; 
+            width: max-content; 
+            min-width: 150px;   
+            background: #fff; border: 1px solid #999; box-shadow: 2px 2px 10px rgba(0,0,0,0.2); 
+            z-index: 1000; display: none; flex-direction: column; padding: 5px;
+            text-align: left; font-weight: normal; max-height: 300px; overflow-y: auto;
+            margin-top: 1px;
+            white-space: nowrap; 
+        }
+        .col-progress .filter-menu { left: auto; right: 0; } 
+
+        .filter-menu label { 
+            display: flex; 
+            align-items: center; 
+            justify-content: flex-start;
+            gap: 8px; 
+            padding: 4px 8px; 
+            cursor: pointer;
+            width: 100%;
+        }
+        .filter-menu label:hover { background: #f0f0f0; }
+        .filter-menu input[type="checkbox"] { margin: 0; width: auto; cursor: pointer; }
+        
+        .date-filter-container { padding: 8px; }
+        .date-filter-input { width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 2px; box-sizing: border-box; }
+
+        .filter-actions { border-top: 1px solid #ddd; padding-top: 5px; margin-top: 5px; display: flex; justify-content: space-between; }
+        .filter-actions button { padding: 3px 8px; font-size: 11px; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        #memo-modal {
+            z-index: 2000 !important;
+        }
+
+        .modal-content { background: #fff; width: 750px; padding: 25px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .modal-content h3 { margin: 0 0 15px 0; font-size: 16px; color: var(--excel-blue); border-bottom: 2px solid var(--excel-blue); padding-bottom: 8px; }
+        .modal-content textarea { width: 100%; height: 350px; margin-bottom: 20px; padding: 12px; font-family: inherit; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; line-height: 1.6; }
+        .modal-btns { display: flex; justify-content: flex-end; gap: 12px; }
+
+        /* 実績参照モーダルスタイル */
+        .ref-result-area { height: 180px; overflow-y: auto; border: 1px solid #eee; margin-bottom: 10px; }
+        .ref-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .ref-table th { background: #f2f2f2; position: sticky; top: 0; padding: 6px; text-align: left; border-bottom: 1px solid #ccc; }
+        .ref-table td { padding: 6px; border-bottom: 1px solid #eee; }
+        .ref-table tr:hover { background: #f9f9f9; }
+        
+        .ref-summary { display: flex; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px; align-items: center; border: 1px solid #ddd; }
+        .select-btn { padding: 3px 8px; font-size: 11px; border: 1px solid #999; color: #333; background: #fff; border-radius: 3px; cursor: pointer; }
+        .select-btn:hover { background: #eee; }
+
+        .search-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+        .search-row input { border: 1px solid #ccc; padding: 6px; border-radius: 3px; flex-grow: 1; }
+        .search-row select { border: 1px solid #ccc; padding: 6px; border-radius: 3px; min-width: 120px; }
+
+        /* スライダー調整エリア */
+        .ref-adjust-area { 
+            background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 15px; 
+            display: flex; flex-direction: column; gap: 8px; position: relative;
+        }
+        .adjust-controls { display: flex; align-items: center; gap: 15px; position: relative; height: 40px; }
+        .slider-wrapper { position: relative; flex-grow: 1; height: 100%; display: flex; align-items: center; }
+        
+        /* グラフ描画用キャンバス */
+        #dist-canvas {
+            position: absolute; left: 0; top: 0; width: 100%; height: 100%; 
+            pointer-events: none; z-index: 1;
+            opacity: 0.9;
+        }
+
+        /* スライダー本体 */
+        input[type="range"] { 
+            width: 100%; margin: 0; position: relative; z-index: 2; cursor: pointer;
+            -webkit-appearance: none; background: transparent; 
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: rgba(0,0,0,0.05); height: 6px; border-radius: 3px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; background: var(--excel-blue); width: 16px; height: 16px; border-radius: 50%;
+            margin-top: -5px; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .adjust-val-box { display: flex; align-items: center; gap: 5px; font-weight: bold; background: #f0f8ff; padding: 5px 10px; border-radius: 4px; border: 1px solid #2f5597; color: #2f5597; z-index: 2; }
+        .adjust-val-box input { width: 60px; text-align: right; border: none; font-size: 16px; font-weight: bold; color: #2f5597; outline: none; background: transparent; }
+
+        /* スライダー下の詳細情報 */
+        #dist-info {
+            font-size: 12px; color: #444; background: #f9f9f9; padding: 5px 10px; border-radius: 4px; min-height: 24px;
+            display: flex; align-items: center; border: 1px solid #eee;
+        }
+        .dist-highlight { color: #2f5597; font-weight: bold; margin-right: 5px; }
+
+        @keyframes blink-red {
+            0% { color: #dc2626; opacity: 1; }
+            50% { color: #dc2626; opacity: 0.4; }
+            100% { color: #dc2626; opacity: 1; }
+        }
+        .overdue-blink {
+            animation: blink-red 1s infinite;
+            color: #dc2626 !important;
+            font-weight: bold;
+        }
+        /* 実績参照のチェックボックス */
+        .ref-checkbox { width: 20px; text-align: center; }
+        .ref-checkbox input[type="checkbox"] { width: auto; }
+        /* チェックボックスの幅調整のため、テーブルの最初の列も調整 */
+        .ref-table thead tr th:first-child { width: 25px; } 
+
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <h2 style="margin: 0 10px 0 0; font-size: 14px;">工数管理</h2>
+        <button class="primary" onclick="addTask()">＋ タスク追加</button>
+        <button onclick="downloadJSON()">📥 保存</button>
+        <button onclick="document.getElementById('fileIn').click()">📤 読込</button>
+        <input type="file" id="fileIn" style="display:none" accept=".json" onchange="uploadJSON(event)">
+        
+        <span id="tracker-status" style="margin-left:20px; font-weight:bold; color:#dc2626;"></span>
+
+        <div class="usage-guide">
+            <div class="guide-item"><b>使い方:</b> 右側の日付列に日々の工数(h)を入力</div>
+            <div class="guide-item"><span class="guide-icon">📁</span>グループ化</div>
+            <div class="guide-item"><span class="guide-icon">📄</span>メモ</div>
+            <div class="guide-item"><span class="guide-icon">▶</span>タイマー</div>
+            <div class="guide-item"><span class="guide-icon">🔍</span>実績参照</div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="wbs-area">
+            <div class="header row">
+                <div class="cell col-no">No</div>
+                <div class="cell col-title">タスク</div>
+                <div class="cell col-owner">
+                    担当 <span id="filter-btn" class="filter-icon" onclick="toggleFilterMenu(event)">▼</span>
+                    <div id="filter-menu" class="filter-menu" onclick="event.stopPropagation()"></div>
+                </div>
+                <div class="cell col-date">
+                    開始日 <span id="date-filter-btn" class="filter-icon" onclick="toggleDateFilterMenu(event)">▼</span>
+                    <div id="date-filter-menu" class="filter-menu" onclick="event.stopPropagation()"></div>
+                </div>
+                <div class="cell col-date">期限</div>
+                <div class="cell col-h">見積(h)</div>
+                <div class="cell col-h">合計(h)</div>
+                <div class="cell col-h">残り(h)</div>
+                <div class="cell col-ratio">見積比</div>
+                <div class="cell col-progress">
+                    進捗 <span id="prog-filter-btn" class="filter-icon" onclick="toggleProgressFilterMenu(event)">▼</span>
+                    <div id="prog-filter-menu" class="filter-menu" onclick="event.stopPropagation()"></div>
+                </div>
+                <div class="cell col-op">操作</div>
+            </div>
+            <div id="wbs-body-container">
+                <div id="wbs-body"></div>
+            </div>
+        </div>
+        <div class="gantt-area" id="gantt-container">
+            <div id="gantt-grid" class="gantt-grid">
+                <div id="gantt-header" class="header row"></div>
+                <div id="gantt-body" style="position:relative;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="memo-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 650px;">
+            <h3 id="memo-title">メモ</h3>
+            <textarea id="memo-text" placeholder="詳細なメモを入力してください..."></textarea>
+            <div class="modal-btns">
+                <button onclick="closeMemo()">キャンセル</button>
+                <button id="btn-save-memo" class="primary" onclick="saveMemo()">保存する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 実績参照用モーダル -->
+    <div id="ref-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 750px;">
+            <h3>過去実績の参照</h3>
+            <div class="search-row">
+                <input type="text" id="ref-search-key" placeholder="キーワード (スペース区切りでAND検索)..." oninput="searchRef()">
+                <select id="ref-search-owner" onchange="searchRef()">
+                    <option value="">(全担当者)</option>
+                </select>
+                <select id="ref-search-status" onchange="searchRef()">
+                    <option value="">(全ステータス)</option>
+                    <option value="complete">完了のみ (100%)</option>
+                    <option value="incomplete">未完了のみ</option>
+                </select>
+            </div>
+            
+            <div class="ref-summary" id="ref-summary-area" style="display:none;">
+                <span><b>結果:</b> <span id="ref-count">0</span>件</span> | 
+                <span>平均: <b id="ref-avg">0.0</b>h</span> <button class="select-btn" onclick="selectRefVal('avg')">平均を選択</button> |
+                <span>最大: <b id="ref-max">0.0</b>h</span> <button class="select-btn" onclick="selectRefVal('max')">最大を選択</button>
+            </div>
+
+            <div class="ref-result-area">
+                <table class="ref-table">
+                    <thead>
+                        <tr>
+                            <th style="width:25px;"><input type="checkbox" id="select-all-ref" onchange="toggleSelectAll(this.checked)"></th>
+                            <th style="width:130px;">親タスク</th>
+                            <th>タスク名</th>
+                            <th style="width:50px; text-align:center;">メモ</th>
+                            <th style="width:70px;">担当</th>
+                            <th style="width:50px;">実績</th>
+                            <th style="width:40px;">進捗</th>
+                            <th style="width:60px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ref-table-body"></tbody>
+                </table>
+            </div>
+
+            <div class="ref-adjust-area">
+                <div style="font-weight:bold; font-size:12px; color:#2f5597; margin-bottom:0px;">
+                    ▼ 見積工数の調整・決定 (背景分布: <span style="color:rgba(47, 85, 151, 0.6)">■実績数</span> <span style="color:red; font-weight:bold;">: 平均</span>)
+                </div>
+                <div class="adjust-controls">
+                    <div class="adjust-val-box">
+                        <input type="number" id="adjust-num" value="0" min="0" step="0.1" oninput="syncSlider(this.value)"> h
+                    </div>
+                    <div class="slider-wrapper" id="slider-wrapper">
+                        <canvas id="dist-canvas"></canvas>
+                        <input type="range" id="adjust-slider" min="0" max="20" step="0.1" value="0" oninput="syncNum(this.value)">
+                    </div>
+                    <button class="primary" onclick="applyRefAdjusted()">決定</button>
+                </div>
+                <!-- 選択位置の詳細情報 -->
+                <div id="dist-info">↑ スライダーを動かすと、その値に近い過去実績が表示されます</div>
+            </div>
+
+            <div class="modal-btns">
+                <button onclick="closeRef()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tasks = JSON.parse(localStorage.getItem('workload-mgmt-v30')) || [
+            { id: 1, title: 'プロジェクト管理', owner: '', start: getLocalDateStr(), end: getLocalDateStr(), est: 0, progress: 0, isGroup: true, hours: {}, memo: "" }
+        ];
+
+        let trackingId = null;
+        let trackingStartTime = null;
+        let timerInterval = null;
+        let dragIdx = null;
+        let currentMemoId = null;
+        let currentRefTaskId = null;
+
+        // 検索結果の実績値を一時保存
+        let currentRefResults = [];
+
+        let visibleOwners = null; 
+        let visibleProgress = null;
+        let visibleStartDate = null; 
+
+        const ganttContainer = document.getElementById('gantt-container');
+        const wbsBodyContainer = document.getElementById('wbs-body-container');
+        ganttContainer.addEventListener('scroll', () => { wbsBodyContainer.scrollTop = ganttContainer.scrollTop; });
+
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('filter-menu');
+            const btn = document.getElementById('filter-btn');
+            if (menu.style.display === 'flex' && e.target !== btn && !menu.contains(e.target)) { menu.style.display = 'none'; }
+            const pMenu = document.getElementById('prog-filter-menu');
+            const pBtn = document.getElementById('prog-filter-btn');
+            if (pMenu.style.display === 'flex' && e.target !== pBtn && !pMenu.contains(e.target)) { pMenu.style.display = 'none'; }
+            const dMenu = document.getElementById('date-filter-menu');
+            const dBtn = document.getElementById('date-filter-btn');
+            if (dMenu.style.display === 'flex' && e.target !== dBtn && !dMenu.contains(e.target)) { dMenu.style.display = 'none'; }
+        });
+
+        const ICON_GROUP = `<svg viewBox="0 0 24 24"><path d="M20,18H4V8H20M20,6H12L10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6Z"/></svg>`;
+        const ICON_DELETE = `<svg viewBox="0 0 24 24"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19V4M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`;
+        const ICON_START = `<svg viewBox="0 0 24 24"><path d="M8,5.14V19.14L19,12.14L8,5.14Z"/></svg>`;
+        const ICON_STOP = `<svg viewBox="0 0 24 24"><path d="M18,18H6V6H18V18Z"/></svg>`;
+        const ICON_MEMO = `<svg viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M13,9V3.5L18.5,9H13Z"/></svg>`;
+
+        function getLocalDateStr() { return new Date().toLocaleDateString('sv-SE'); }
+        function formatDateForDisplay(d) { return d ? d.replace(/-/g, '/') : ""; }
+
+        function updateLogic() {
+            let major = 0, minor = 0;
+            tasks.forEach(t => {
+                if (t.isGroup) { major++; minor = 0; t.no = major.toString(); }
+                else { minor++; t.no = major === 0 ? minor.toString() : `${major}.${minor}`; }
+            });
+            for (let i = 0; i < tasks.length; i++) {
+                let tEst = 0, tSum = 0, weightedProg = 0, minS = null, maxE = null, hasChild = false;
+                if (tasks[i].isGroup) {
+                    for (let j = i + 1; j < tasks.length; j++) {
+                        if (tasks[j].isGroup) break;
+                        hasChild = true;
+                        let child = tasks[j];
+                        let childSum = Object.values(child.hours).reduce((a, b) => a + Number(b), 0);
+                        tEst += Number(child.est || 0);
+                        tSum += childSum;
+                        weightedProg += (Number(child.progress || 0) * Number(child.est || 0));
+                        if (!minS || (child.start && child.start < minS)) minS = child.start;
+                        if (!maxE || (child.end && child.end > maxE)) maxE = child.end;
+                    }
+                    if (hasChild) {
+                        tasks[i].est = tEst;
+                        if(minS) tasks[i].start = minS;
+                        if(maxE) tasks[i].end = maxE;
+                        tasks[i].progress = tEst > 0 ? Math.round(weightedProg / tEst) : 0;
+                        tasks[i].computedSum = tSum;
+                    } else { tasks[i].computedSum = Object.values(tasks[i].hours).reduce((a, b) => a + Number(b), 0); }
+                } else { tasks[i].computedSum = Object.values(tasks[i].hours).reduce((a, b) => a + Number(b), 0); }
+            }
+        }
+
+        /* フィルタ関連 */
+        function toggleFilterMenu(e) {
+            e.stopPropagation();
+            document.getElementById('prog-filter-menu').style.display = 'none';
+            document.getElementById('date-filter-menu').style.display = 'none';
+            const menu = document.getElementById('filter-menu');
+            if (menu.style.display === 'flex') { menu.style.display = 'none'; return; }
+            const owners = new Set();
+            tasks.forEach(t => owners.add(t.owner || ""));
+            const sortedOwners = Array.from(owners).sort();
+            menu.innerHTML = '';
+            const allBtnDiv = document.createElement('div');
+            allBtnDiv.style.padding = "4px"; allBtnDiv.style.borderBottom = "1px solid #eee"; allBtnDiv.style.marginBottom = "4px";
+            allBtnDiv.style.display = "flex"; allBtnDiv.style.gap = "10px"; allBtnDiv.style.justifyContent = "center";
+            const btnAll = document.createElement('button'); btnAll.innerText = "すべて"; btnAll.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
+            const btnClear = document.createElement('button'); btnClear.innerText = "解除"; btnClear.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+            allBtnDiv.appendChild(btnAll); allBtnDiv.appendChild(btnClear); menu.appendChild(allBtnDiv);
+            sortedOwners.forEach(owner => {
+                const val = owner === "" ? "(未割当)" : owner;
+                const label = document.createElement('label');
+                const chk = document.createElement('input'); chk.type = "checkbox"; chk.value = owner;
+                if (visibleOwners === null || visibleOwners.has(owner)) chk.checked = true;
+                const span = document.createElement('span'); span.innerText = val;
+                label.appendChild(chk); label.appendChild(span); menu.appendChild(label);
+            });
+            const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions';
+            const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用";
+            applyBtn.onclick = () => {
+                const checked = menu.querySelectorAll('input[type="checkbox"]:checked');
+                if (checked.length === sortedOwners.length) { visibleOwners = null; document.getElementById('filter-btn').classList.remove('filter-active'); } 
+                else { visibleOwners = new Set(); checked.forEach(c => visibleOwners.add(c.value)); document.getElementById('filter-btn').classList.add('filter-active'); }
+                menu.style.display = 'none'; render();
+            };
+            actionDiv.appendChild(applyBtn); menu.appendChild(actionDiv); menu.style.display = 'flex';
+        }
+        function toggleProgressFilterMenu(e) {
+            e.stopPropagation();
+            document.getElementById('filter-menu').style.display = 'none';
+            document.getElementById('date-filter-menu').style.display = 'none';
+            const menu = document.getElementById('prog-filter-menu');
+            if (menu.style.display === 'flex') { menu.style.display = 'none'; return; }
+            menu.innerHTML = '';
+            const options = [ { val: 'incomplete', text: '未完了' }, { val: 'complete', text: '完了 (100%)' } ];
+            const allBtnDiv = document.createElement('div');
+            allBtnDiv.style.padding = "4px"; allBtnDiv.style.borderBottom = "1px solid #eee"; allBtnDiv.style.marginBottom = "4px";
+            allBtnDiv.style.display = "flex"; allBtnDiv.style.gap = "10px"; allBtnDiv.style.justifyContent = "center";
+            const btnAll = document.createElement('button'); btnAll.innerText = "すべて"; btnAll.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
+            const btnClear = document.createElement('button'); btnClear.innerText = "解除"; btnClear.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+            allBtnDiv.appendChild(btnAll); allBtnDiv.appendChild(btnClear); menu.appendChild(allBtnDiv);
+            options.forEach(opt => {
+                const label = document.createElement('label'); const chk = document.createElement('input'); chk.type = "checkbox"; chk.value = opt.val;
+                if (visibleProgress === null || visibleProgress.has(opt.val)) chk.checked = true;
+                const span = document.createElement('span'); span.innerText = opt.text;
+                label.appendChild(chk); label.appendChild(span); menu.appendChild(label);
+            });
+            const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions';
+            const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用";
+            applyBtn.onclick = () => {
+                const checked = menu.querySelectorAll('input[type="checkbox"]:checked');
+                if (checked.length === options.length) { visibleProgress = null; document.getElementById('prog-filter-btn').classList.remove('filter-active'); } 
+                else { visibleProgress = new Set(); checked.forEach(c => visibleProgress.add(c.value)); document.getElementById('prog-filter-btn').classList.add('filter-active'); }
+                menu.style.display = 'none'; render();
+            };
+            actionDiv.appendChild(applyBtn); menu.appendChild(actionDiv); menu.style.display = 'flex';
+        }
+        function toggleDateFilterMenu(e) {
+            e.stopPropagation();
+            document.getElementById('filter-menu').style.display = 'none';
+            document.getElementById('prog-filter-menu').style.display = 'none';
+            const menu = document.getElementById('date-filter-menu');
+            if (menu.style.display === 'flex') { menu.style.display = 'none'; return; }
+            menu.innerHTML = '';
+            const divContainer = document.createElement('div'); divContainer.className = 'date-filter-container';
+            divContainer.innerHTML = '<div style="margin-bottom:4px; font-weight:bold; font-size:11px;">指定日以降を表示:</div>';
+            const dateInput = document.createElement('input'); dateInput.type = 'date'; dateInput.className = 'date-filter-input';
+            if (visibleStartDate) dateInput.value = visibleStartDate;
+            divContainer.appendChild(dateInput); menu.appendChild(divContainer);
+            const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions';
+            const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用";
+            applyBtn.onclick = () => {
+                const val = dateInput.value;
+                if (val) { visibleStartDate = val; document.getElementById('date-filter-btn').classList.add('filter-active'); } 
+                else { visibleStartDate = null; document.getElementById('date-filter-btn').classList.remove('filter-active'); }
+                menu.style.display = 'none'; render();
+            };
+            const clearBtn = document.createElement('button'); clearBtn.innerText = "解除";
+            clearBtn.onclick = () => { visibleStartDate = null; document.getElementById('date-filter-btn').classList.remove('filter-active'); menu.style.display = 'none'; render(); };
+            actionDiv.appendChild(applyBtn); actionDiv.appendChild(clearBtn); menu.appendChild(actionDiv); menu.style.display = 'flex';
+        }
+
+        function render() {
+            updateLogic();
+            localStorage.setItem('workload-mgmt-v30', JSON.stringify(tasks));
+            const wbsBody = document.getElementById('wbs-body');
+            const ganttHead = document.getElementById('gantt-header');
+            const ganttBody = document.getElementById('gantt-body');
+            wbsBody.innerHTML = ganttHead.innerHTML = ganttBody.innerHTML = "";
+
+            const todayStr = getLocalDateStr();
+            const todayObj = new Date(todayStr);
+            const allDates = tasks.flatMap(t => [new Date(t.start), new Date(t.end)]);
+            let minD = new Date(Math.min(...allDates, todayObj));
+            minD.setDate(minD.getDate() - 5);
+            let maxD = new Date(Math.max(...allDates, todayObj));
+            maxD.setDate(maxD.getDate() + 25);
+
+            const dateList = [];
+            for (let d = new Date(minD); d <= maxD; d.setDate(d.getDate() + 1)) {
+                const curStr = d.toLocaleDateString('sv-SE');
+                dateList.push({ str: curStr, label: `${d.getMonth()+1}/${d.getDate()}`, w: d.getDay(), isToday: curStr === todayStr });
+            }
+
+            dateList.forEach(d => {
+                const h = document.createElement('div');
+                h.className = `cell day-cell ${d.w===6?'sat':d.w===0?'sun':''} ${d.isToday?'is-today-h':''}`;
+                if(d.isToday) h.id = "today-target";
+                h.innerText = d.label;
+                ganttHead.appendChild(h);
+            });
+
+            const todayIdx = dateList.findIndex(d => d.isToday);
+            if (todayIdx !== -1) {
+                const line = document.createElement('div');
+                line.className = 'today-line';
+                line.style.left = (todayIdx * 55) + 'px'; 
+                ganttBody.appendChild(line);
+            }
+
+            const selfMatches = new Array(tasks.length).fill(false);
+            for(let i=0; i<tasks.length; i++) {
+                const t = tasks[i];
+                let ownerOk = visibleOwners ? visibleOwners.has(t.owner || "") : true;
+                let progOk = visibleProgress ? visibleProgress.has((Number(t.progress)>=100)?'complete':'incomplete') : true;
+                let dateOk = visibleStartDate ? (!t.start || t.start >= visibleStartDate) : true;
+                selfMatches[i] = ownerOk && progOk && dateOk;
+            }
+
+            const visibleIndices = new Set();
+            for(let i=0; i<tasks.length; i++) {
+                if (!tasks[i].isGroup) {
+                    if (selfMatches[i]) visibleIndices.add(i);
+                } else {
+                    let groupVisible = selfMatches[i];
+                    if (!groupVisible) {
+                        for(let j=i+1; j<tasks.length; j++) {
+                            if (tasks[j].isGroup) break;
+                            if (selfMatches[j]) { groupVisible = true; break; }
+                        }
+                    }
+                    if (groupVisible) visibleIndices.add(i);
+                }
+            }
+
+            tasks.forEach((t, idx) => {
+                if (!visibleIndices.has(idx)) return;
+
+                const isTracking = trackingId === t.id;
+                const remain = (Number(t.est || 0) - t.computedSum).toFixed(1);
+                const ratio = t.est > 0 ? Math.round((t.computedSum / t.est) * 100) : 0;
+                const hasMemo = t.memo && t.memo.trim().length > 0;
+
+                const wRow = document.createElement('div');
+                wRow.className = 'row' + (t.isGroup ? ' group-row' : '') + (isTracking ? ' tracking-active' : '');
+                wRow.draggable = true;
+                wRow.ondragstart = () => dragIdx = idx;
+                wRow.ondragover = (e) => e.preventDefault();
+                wRow.ondrop = () => { const move = tasks.splice(dragIdx, 1)[0]; tasks.splice(idx, 0, move); render(); };
+
+                const dateCell = (f) => {
+                    const val = t[f];
+                    const isOverdue = f === 'end' && val && val < todayStr && (Number(t.progress)||0) < 100;
+                    const overdueClass = isOverdue ? ' overdue-blink' : '';
+
+                    if (t.isGroup) {
+                        return `<span class="date-display-text${overdueClass}">${formatDateForDisplay(val)}</span>`;
+                    } else {
+                        return `<input type="text" class="date-input${overdueClass}" value="${formatDateForDisplay(val)}" onfocus="(this.type='date')" onblur="(this.type='text'); this.value='${formatDateForDisplay(val)}'" onchange="upd(${t.id},'${f}',this.value)">`;
+                    }
+                };
+
+                // 進捗表示の修正
+                const progValue = Number(t.progress || 0);
+                const progressCellContent = t.isGroup 
+                    ? `<span>${progValue}%</span>` 
+                    : `<input type="number" min="0" max="100" value="${progValue}" onfocus="this.value=this.value.replace('%','')" onblur="this.value=this.value+'%'" onchange="upd(${t.id},'progress',this.value)">`;
+
+                wRow.innerHTML = `
+                    <div class="cell col-no">${t.no}</div>
+                    <div class="cell col-title" style="padding-left:${t.isGroup?'4px':'20px'}"><input value="${t.title}" onchange="upd(${t.id},'title',this.value)"></div>
+                    <div class="cell col-owner"><input value="${t.owner}" onchange="upd(${t.id},'owner',this.value)" ${t.isGroup?'readonly':''}></div>
+                    <div class="cell col-date">${dateCell('start')}</div>
+                    <div class="cell col-date">${dateCell('end')}</div>
+                    
+                    <div class="cell col-h">
+                        <input type="number" min="0" step="0.1" value="${Number(t.est || 0).toFixed(1)}" onchange="upd(${t.id},'est',this.value)" ${t.isGroup?'readonly':''}>
+                        ${!t.isGroup ? `<div class="icon-ref" onclick="openRef(${t.id})" title="実績参照">🔍</div>` : ''}
+                    </div>
+                    
+                    <div class="cell col-h center" style="font-weight:bold">${t.computedSum.toFixed(1)}</div>
+                    <div class="cell col-h center" style="color:${remain<0?'red':'inherit'}">${remain}</div>
+                    <div class="cell col-ratio center" style="color:${ratio>100?'red':'inherit'}">${ratio}%</div>
+                    <div class="cell col-progress">${t.isGroup ? `<div style="text-align:center;">${progValue}%</div>` : `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;"><input type="number" min="0" max="100" value="${progValue}" onchange="upd(${t.id},'progress',this.value)" style="width:100%;text-align:center;"><span style="margin-left:2px;flex-shrink:0;">%</span></div>`}</div>
+                    <div class="cell col-op">
+                        <div class="icon-btn icon-group" onclick="toggleGrp(${t.id})" title="グループ化切替">${ICON_GROUP}</div>
+                        <div class="icon-btn icon-memo ${hasMemo?'has-content':''}" onclick="openMemo(${t.id})" title="メモを開く">${ICON_MEMO}</div>
+                        ${!t.isGroup ? (isTracking ? `<div class="icon-btn icon-timer stop" onclick="stopTracking()" title="計測を停止して工数を入力">${ICON_STOP}</div>` : `<div class="icon-btn icon-timer start" onclick="startTracking(${t.id})" title="計測を開始">${ICON_START}</div>`) : ''}
+                        <div class="icon-btn icon-delete" onclick="delT(${t.id})" title="削除">${ICON_DELETE}</div>
+                    </div>
+                `;
+                wbsBody.appendChild(wRow);
+
+                const gRow = document.createElement('div');
+                gRow.className = 'row' + (t.isGroup ? ' group-row' : '');
+                dateList.forEach(d => {
+                    const valRaw = t.hours[d.str];
+                    const val = (valRaw !== undefined) ? valRaw.toFixed(1) : "";
+                    const inR = d.str >= t.start && d.str <= t.end;
+                    const c = document.createElement('div');
+                    c.className = `cell day-cell ${d.w===6?'sat':d.w===0?'sun':''} ${inR?'in-range':''} ${d.isToday?'is-today-col':''}`;
+                    if (!t.isGroup) {
+                        const inv = document.createElement('input');
+                        inv.type = "number"; inv.min = "0"; inv.step = "0.1"; inv.className = "hour-input";
+                        inv.value = val;
+                        inv.onchange = (e) => updHr(t.id, d.str, e.target.value);
+                        c.appendChild(inv);
+                    }
+                    gRow.appendChild(c);
+                });
+                ganttBody.appendChild(gRow);
+            });
+        }
+
+        // --- メモ機能 (通常編集・参照用閲覧) ---
+        function openMemo(id) {
+            const t = tasks.find(x => x.id === id); if(!t) return;
+            currentMemoId = id;
+            document.getElementById('memo-title').innerText = `メモ: ${t.title}`;
+            document.getElementById('memo-text').value = t.memo || "";
+            document.getElementById('memo-text').readOnly = false;
+            document.getElementById('btn-save-memo').style.display = 'inline-block';
+            document.getElementById('memo-modal').style.display = 'flex';
+        }
+        
+        function viewRefMemo(index) {
+            if (!currentRefResults[index]) return;
+            const t = currentRefResults[index].task;
+            
+            document.getElementById('memo-title').innerText = `メモ参照: ${t.title}`;
+            document.getElementById('memo-text').value = t.memo || "";
+            document.getElementById('memo-text').readOnly = true;
+            document.getElementById('btn-save-memo').style.display = 'none';
+            document.getElementById('memo-modal').style.display = 'flex';
+        }
+
+        function closeMemo() { document.getElementById('memo-modal').style.display = 'none'; currentMemoId = null; }
+        function saveMemo() {
+            if (currentMemoId === null) return;
+            const t = tasks.find(x => x.id === currentMemoId);
+            if (t) { t.memo = document.getElementById('memo-text').value; render(); }
+            closeMemo();
+        }
+
+        // --- 進捗更新ロジック (完了時メモ促し追加) ---
+        function upd(id, f, v) { 
+            const t = tasks.find(x => x.id === id); 
+            if(t) { 
+                if((f==='est' || f==='progress') && v < 0) v = 0; 
+                if (f === 'progress') {
+                    // 完了時処理
+                    if (Number(v) >= 100 && Number(t.progress || 0) < 100) {
+                        // 強制的に100に設定
+                        t[f] = 100; 
+                        render();
+                        // 確認ダイアログを表示
+                        const confirmMsg = `タスク「${t.title}」が完了しました。\n振り返りとしてメモを入力しますか？`;
+                        if (confirm(confirmMsg)) {
+                            openMemo(id);
+                        }
+                        return; 
+                    }
+                    if (Number(v) >= 100) v = 100;
+                }
+
+                t[f] = v; 
+                render(); 
+            } 
+        }
+
+        // --- 実績参照機能 ---
+        function openRef(id) {
+            const t = tasks.find(x => x.id === id); if(!t) return;
+            currentRefTaskId = id;
+            document.getElementById('ref-search-key').value = t.title; 
+            
+            const owners = new Set();
+            tasks.forEach(task => { if(task.owner) owners.add(task.owner); });
+            const sel = document.getElementById('ref-search-owner');
+            sel.innerHTML = '<option value="">(全担当者)</option>';
+            Array.from(owners).sort().forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o; opt.innerText = o;
+                sel.appendChild(opt);
+            });
+
+            // ステータスフィルタ初期化
+            document.getElementById('ref-search-status').value = "";
+
+            setAdjustVal(0);
+            drawDistribution([], 20); // 初期クリア
+            updateDistInfo(0);
+
+            document.getElementById('ref-modal').style.display = 'flex';
+            searchRef(); 
+        }
+        function closeRef() { document.getElementById('ref-modal').style.display = 'none'; currentRefTaskId = null; }
+        
+        // 全選択チェックボックスのトグル
+        function toggleSelectAll(checked) {
+            currentRefResults.forEach(r => r.isSelected = checked);
+            renderRefList();
+            recalculateSummary();
+        }
+
+        // 個別タスクの選択トグル
+        function toggleRefSelection(index, checked) {
+            if (currentRefResults[index]) {
+                currentRefResults[index].isSelected = checked;
+                recalculateSummary();
+                // 全選択チェックボックスの状態を更新
+                const selectAll = document.getElementById('select-all-ref');
+                const selectedCount = currentRefResults.filter(r => r.isSelected).length;
+                const totalCount = currentRefResults.length;
+
+                if (totalCount === 0) {
+                    selectAll.checked = false;
+                    selectAll.indeterminate = false;
+                } else if (selectedCount === totalCount) {
+                    selectAll.checked = true;
+                    selectAll.indeterminate = false;
+                } else if (selectedCount > 0) {
+                    selectAll.checked = false;
+                    selectAll.indeterminate = true;
+                } else {
+                    selectAll.checked = false;
+                    selectAll.indeterminate = false;
+                }
+            }
+        }
+        
+        function searchRef() {
+            const rawKey = document.getElementById('ref-search-key').value;
+            const keywords = rawKey.trim() ? rawKey.toLowerCase().trim().split(/[\s　]+/) : [];
+            
+            const ownerFilter = document.getElementById('ref-search-owner').value;
+            const statusFilter = document.getElementById('ref-search-status').value;
+            
+            currentRefResults = []; // リセット
+            
+            let currentParentTitle = "-";
+
+            tasks.forEach(t => {
+                if (t.isGroup) {
+                    currentParentTitle = t.title;
+                } else {
+                    // 自分以外、かつ実績がある
+                    if (t.id !== currentRefTaskId && t.computedSum > 0) {
+                        
+                        // 1. キーワード検索 (タスク名 + 親タスク名でAND検索)
+                        const searchTarget = (currentParentTitle + " " + t.title).toLowerCase();
+                        const isMatch = keywords.length === 0 || keywords.every(k => searchTarget.includes(k));
+
+                        if (!isMatch) return;
+
+                        // 2. 担当者フィルタ
+                        if (ownerFilter && t.owner !== ownerFilter) return;
+
+                        // 3. ステータスフィルタ
+                        const isComplete = (Number(t.progress) >= 100);
+                        if (statusFilter === 'complete' && !isComplete) return;
+                        if (statusFilter === 'incomplete' && isComplete) return;
+
+                        currentRefResults.push({ 
+                            task: t, 
+                            parent: currentParentTitle, 
+                            isComplete: isComplete,
+                            isSelected: true // フィルタリング直後は全て選択状態
+                        });
+                    }
+                }
+            });
+
+            document.getElementById('select-all-ref').checked = currentRefResults.length > 0;
+            document.getElementById('select-all-ref').indeterminate = false;
+
+            renderRefList();
+            recalculateSummary();
+        }
+
+        // リスト表示専用関数
+        function renderRefList() {
+            const tbody = document.getElementById('ref-table-body');
+            tbody.innerHTML = "";
+            currentRefResults.forEach((item, index) => {
+                const t = item.task;
+                const memoCell = t.memo ? `<button class="icon-btn" style="width:24px;height:24px; margin:0 auto;" onclick="viewRefMemo(${index})" title="メモを表示">📄</button>` : "-";
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="ref-checkbox"><input type="checkbox" onchange="toggleRefSelection(${index}, this.checked)" ${item.isSelected ? 'checked' : ''}></td>
+                    <td style="color:#555; font-size:11px;">${item.parent}</td>
+                    <td>${t.title}</td>
+                    <td style="text-align:center;">${memoCell}</td>
+                    <td>${t.owner || '-'}</td>
+                    <td>${t.computedSum.toFixed(1)}h</td>
+                    <td style="color:${item.isComplete?'#2f5597':'#d97706'}">${t.progress}%</td>
+                    <td><button class="select-btn" onclick="setAdjustVal(${t.computedSum})">選択</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 選択されたタスクのみでサマリーと分布を再計算
+        function recalculateSummary() {
+            const selectedResults = currentRefResults.filter(r => r.isSelected);
+            let count = selectedResults.length;
+            let sum = 0, max = 0;
+
+            if (count > 0) {
+                sum = selectedResults.reduce((a, b) => a + b.task.computedSum, 0);
+                max = Math.max(...selectedResults.map(r => r.task.computedSum));
+                const avg = sum / count;
+
+                document.getElementById('ref-count').innerText = count;
+                document.getElementById('ref-avg').innerText = avg.toFixed(1);
+                document.getElementById('ref-max').innerText = max.toFixed(1);
+                document.getElementById('ref-summary-area').style.display = 'flex';
+
+                // 分布図更新
+                const distData = selectedResults.map(r => ({ val: r.task.computedSum, isComplete: r.isComplete }));
+                const slider = document.getElementById('adjust-slider');
+                drawDistribution(distData, Math.max(20, Math.ceil(max * 2)), avg);
+                
+                // スライダー値更新 (平均か現在値に近い方)
+                const currentVal = parseFloat(slider.value);
+                // 現在値が平均から離れすぎている場合のみ平均に寄せる
+                if (Math.abs(currentVal - avg) > 1.0) { // 1.0h以上離れていたら寄せる
+                    setAdjustVal(avg);
+                } else {
+                    updateDistInfo(currentVal); // グラフと情報のみ更新
+                }
+
+
+            } else {
+                document.getElementById('ref-count').innerText = 0;
+                document.getElementById('ref-avg').innerText = "0.0";
+                document.getElementById('ref-max').innerText = "0.0";
+                document.getElementById('ref-summary-area').style.display = 'none';
+
+                drawDistribution([], 20); // グラフクリア
+                updateDistInfo(0); // 情報クリア
+                setAdjustVal(0);
+            }
+        }
+        
+        // --- 値調整 & 分布図 ---
+        function selectRefVal(type) {
+            const valStr = document.getElementById(type === 'avg' ? 'ref-avg' : 'ref-max').innerText;
+            const val = parseFloat(valStr);
+            if(!isNaN(val)) setAdjustVal(val);
+        }
+
+        function setAdjustVal(val) {
+            val = parseFloat(val);
+            if(isNaN(val) || val < 0) val = 0;
+            
+            const selectedVals = currentRefResults.filter(r => r.isSelected).map(r => r.task.computedSum);
+            const maxRef = selectedVals.length > 0 ? Math.max(...selectedVals) : 0;
+            const maxVal = Math.max(20, Math.ceil(Math.max(val*2, maxRef, 0) || 20));
+            
+            const slider = document.getElementById('adjust-slider');
+            slider.max = maxVal;
+            slider.value = val;
+            document.getElementById('adjust-num').value = val.toFixed(1);
+
+            let avg = 0;
+            if (selectedVals.length > 0) {
+                avg = selectedVals.reduce((a,b) => a + b, 0) / selectedVals.length;
+            }
+            const distData = currentRefResults.filter(r => r.isSelected).map(r => ({ val: r.task.computedSum, isComplete: r.isComplete }));
+            drawDistribution(distData, maxVal, avg);
+            
+            updateDistInfo(val);
+        }
+
+        function syncSlider(val) {
+            document.getElementById('adjust-slider').value = val;
+            updateDistInfo(val);
+        }
+        function syncNum(val) {
+            document.getElementById('adjust-num').value = parseFloat(val).toFixed(1);
+            updateDistInfo(val);
+        }
+
+        // スライダー値付近の実績情報を表示
+        function updateDistInfo(val) {
+            val = parseFloat(val);
+            if (isNaN(val)) return;
+
+            const infoEl = document.getElementById('dist-info');
+            const selectedResults = currentRefResults.filter(r => r.isSelected);
+
+            if (selectedResults.length === 0) {
+                infoEl.innerHTML = "該当する実績データがありません";
+                return;
+            }
+
+            const range = 0.25;
+            const hits = selectedResults.filter(r => 
+                r.task.computedSum >= (val - range) && r.task.computedSum < (val + range)
+            );
+
+            if (hits.length > 0) {
+                const count = hits.length;
+                let names = hits.slice(0, 3).map(r => {
+                    const parentStr = (r.parent && r.parent !== "-") ? r.parent + " > " : "";
+                    return `${parentStr}${r.task.title}(${r.task.computedSum.toFixed(1)}h, ${r.task.progress}%)`;
+                }).join(", ");
+                if (hits.length > 3) names += `, 他${hits.length - 3}件`;
+                
+                infoEl.innerHTML = `<span class="dist-highlight">${val.toFixed(1)}h 付近の実績:</span> <b>${count}件</b> （${names}）`;
+            } else {
+                infoEl.innerHTML = `<span class="dist-highlight">${val.toFixed(1)}h 付近の実績:</span> なし`;
+            }
+        }
+
+        function applyRefAdjusted() {
+            if(!currentRefTaskId) return;
+            const val = parseFloat(document.getElementById('adjust-num').value);
+            if(isNaN(val)) return;
+
+            const t = tasks.find(x => x.id === currentRefTaskId);
+            if(t) { t.est = val; render(); }
+            closeRef();
+        }
+
+        // ヒートマップ風分布描画 (全色統一・平均線)
+        function drawDistribution(data, maxRange, average) {
+            const canvas = document.getElementById('dist-canvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.parentElement.offsetWidth;
+            const h = canvas.parentElement.offsetHeight;
+            canvas.width = w;
+            canvas.height = h;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // 目盛り線
+            ctx.strokeStyle = "#eee";
+            ctx.beginPath();
+            ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
+            ctx.stroke();
+            
+            // X軸ラベル
+            ctx.fillStyle = "#999";
+            ctx.font = "10px sans-serif";
+            ctx.fillText("0h", 2, h - 2);
+            ctx.fillText(maxRange + "h", w - 25, h - 2);
+
+            if (!data || data.length === 0) return;
+
+            // ビン作成 (0.5h刻み)
+            const binSize = 0.5;
+            const bins = {};
+            let maxCount = 0;
+
+            data.forEach(item => {
+                const binKey = Math.floor(item.val / binSize) * binSize;
+                bins[binKey] = (bins[binKey] || 0) + 1;
+                if (bins[binKey] > maxCount) maxCount = bins[binKey];
+            });
+
+            // 描画 (すべて青色で統一)
+            ctx.fillStyle = "rgba(47, 85, 151, 0.6)"; 
+            
+            for (let b in bins) {
+                const val = parseFloat(b);
+                const count = bins[b];
+                
+                const x = (val / maxRange) * w;
+                const barW = (binSize / maxRange) * w;
+                
+                // 高さ計算
+                const totalH = (count / maxCount) * (h - 8); 
+                const yBase = (h/2) + (totalH/2);
+
+                ctx.fillRect(x, yBase - totalH, Math.max(barW - 1, 1), totalH);
+            }
+
+            // 平均線の描画 (赤点線)
+            if (average > 0) {
+                const avgX = (average / maxRange) * w;
+                ctx.beginPath();
+                ctx.strokeStyle = "rgba(255, 0, 0, 0.7)";
+                ctx.lineWidth = 2;
+                ctx.setLineDash([3, 3]); // 点線
+                ctx.moveTo(avgX, 5);
+                ctx.lineTo(avgX, h - 5);
+                ctx.stroke();
+                ctx.setLineDash([]); // リセット
+            }
+        }
+
+        // --- タイマー・編集機能 ---
+        function startTracking(id) {
+            if(trackingId) stopTracking();
+            trackingId = id; trackingStartTime = new Date();
+            const t = tasks.find(x => x.id === id);
+            if(timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const diffMs = new Date() - trackingStartTime;
+                const h = Math.floor(diffMs / 3600000);
+                const m = Math.floor((diffMs % 3600000) / 60000);
+                const s = Math.floor((diffMs % 60000) / 1000);
+                document.getElementById('tracker-status').innerText = `計測中 (${[h,m,s].map(v=>v.toString().padStart(2,'0')).join(':')}): ${t.title}`;
+            }, 1000);
+            render();
+        }
+        function stopTracking() {
+            if(!trackingId) return;
+            const diffH = (new Date() - trackingStartTime) / 3600000;
+            const todayStr = getLocalDateStr();
+            const t = tasks.find(x => x.id === trackingId);
+            t.hours[todayStr] = parseFloat(((t.hours[todayStr] || 0) + diffH).toFixed(1));
+            clearInterval(timerInterval); trackingId = null; trackingStartTime = null;
+            document.getElementById('tracker-status').innerText = "";
+            render();
+        }
+
+        function updHr(id, dt, v) { const t = tasks.find(x => x.id === id); if(t) { const nv = parseFloat(v); if (!v || isNaN(nv) || nv <= 0) delete t.hours[dt]; else t.hours[dt] = nv; render(); } }
+        function toggleGrp(id) { const t = tasks.find(x => x.id === id); if(t) { t.isGroup = !t.isGroup; render(); } }
+        function addTask() { 
+            const today = getLocalDateStr(); 
+            tasks.push({ id: Date.now(), title: '新タスク', owner: '', start: today, end: today, est: 0.0, progress: 0, isGroup: false, hours: {}, memo: "" }); 
+            render(); 
+        }
+        function delT(id) { if(confirm('削除しますか？')) { if(trackingId === id) stopTracking(); tasks = tasks.filter(x => x.id !== id); render(); } }
+        function downloadJSON() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' })); a.download = `wbs_data.json`; a.click(); }
+        function uploadJSON(e) { const reader = new FileReader(); reader.onload = (ev) => { tasks = JSON.parse(ev.target.result); render(); scrollToToday(); }; reader.readAsText(e.target.files[0]); }
+        function scrollToToday() { const target = document.getElementById('today-target'); if (ganttContainer && target) ganttContainer.scrollLeft = target.offsetLeft - 100; }
+
+        render();
+        window.onload = () => setTimeout(scrollToToday, 200);
+    </script>
+</body>
+</html>
