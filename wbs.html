@@ -423,7 +423,14 @@
     </div>
 
     <script>
-        let tasks = JSON.parse(localStorage.getItem('workload-mgmt-v30')) || [
+        // ファイル名からstorageキーを生成
+        function getStorageKey() {
+            const path = window.location.pathname;
+            const fileName = path.split('/').pop().replace('.html', '') || 'default';
+            return `workload-mgmt-v30-${fileName}`;
+        }
+        
+        let tasks = JSON.parse(localStorage.getItem(getStorageKey())) || [
             { id: 1, title: 'プロジェクト管理', owner: '', start: getLocalDateStr(), end: getLocalDateStr(), est: 0, progress: 0, isGroup: true, hours: {}, memo: "" }
         ];
 
@@ -589,7 +596,7 @@
 
         function render() {
             updateLogic();
-            localStorage.setItem('workload-mgmt-v30', JSON.stringify(tasks));
+            localStorage.setItem(getStorageKey(), JSON.stringify(tasks));
             const wbsBody = document.getElementById('wbs-body');
             const ganttHead = document.getElementById('gantt-header');
             const ganttBody = document.getElementById('gantt-body');
