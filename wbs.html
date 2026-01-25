@@ -425,7 +425,7 @@
                     </div>
                     <!-- 日別工数推移 (担当者別・積み上げ) -->
                     <div class="chart-box">
-                        <h4>日別工数推移 (担当者別積み上げ)</h4>
+                        <h4>日別工数推移</h4>
                         <canvas id="chart-bar-daily" class="chart" style="height: 300px;"></canvas>
                     </div>
                 </div>
@@ -710,8 +710,9 @@
                 if((f==='est' || f==='progress') && v < 0) v = 0; 
                 if (f === 'progress') {
                     if (Number(v) >= 100) { 
+                        const wasIncomplete = Number(t.progress || 0) < 100;
                         t[f] = 100; 
-                        if (Number(t.progress || 0) < 100 && !t.memo) { 
+                        if (wasIncomplete) { 
                             render(); 
                             const confirmMsg = `タスク「${t.title}」が完了しました。\n振り返りとしてメモを入力しますか？`;
                             if (confirm(confirmMsg)) { openMemo(id); }
@@ -1148,11 +1149,7 @@
             ctx.strokeStyle = "#ccc";
             ctx.beginPath(); ctx.moveTo(40, 10); ctx.lineTo(40, h-40); ctx.lineTo(w-10, h-40); ctx.stroke();
 
-            // 8h基準線
-            const y8h = h - 40 - (8 / yMax) * chartH;
-            ctx.strokeStyle = "red"; ctx.setLineDash([2,2]);
-            ctx.beginPath(); ctx.moveTo(40, y8h); ctx.lineTo(w, y8h); ctx.stroke(); ctx.setLineDash([]);
-            ctx.fillStyle = "red"; ctx.textAlign = "left"; ctx.fillText("8h", 10, y8h + 3);
+            // 8h基準線は表示しない
 
             dates.forEach((d, i) => {
                 const x = 50 + i * ((w - 60) / dates.length);
