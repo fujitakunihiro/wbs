@@ -855,6 +855,18 @@
             const ym = document.getElementById('report-month').value; if (!ym) return;
             const tbody = document.getElementById('report-body'); tbody.innerHTML = "";
             const dailyData = {};
+            
+            // 親タスク名のマッピング生成（各タスクが属する親タスク名を事前に把握）
+            const parentMap = {};
+            let currentParentTitle = "";
+            tasks.forEach(t => {
+                if (t.isGroup) {
+                    currentParentTitle = t.title;
+                } else {
+                    parentMap[t.id] = currentParentTitle;
+                }
+            });
+            
             tasks.forEach(t => {
                 if (t.isGroup) return;
                 const owner = t.owner || "(未割当)";
@@ -864,7 +876,9 @@
                     if (!dailyData[date][owner]) dailyData[date][owner] = { total: 0, taskDetails: [] };
                     const h = t.hours[date];
                     dailyData[date][owner].total += h;
-                    dailyData[date][owner].taskDetails.push(`${t.title}(${h.toFixed(1)}h)`);
+                    const parentName = parentMap[t.id] || "";
+                    const displayTitle = parentName ? `${parentName}/${t.title}` : t.title;
+                    dailyData[date][owner].taskDetails.push(`${displayTitle}(${h.toFixed(1)}h)`);
                 });
             });
             const sortedDates = Object.keys(dailyData).sort();
