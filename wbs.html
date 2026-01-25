@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>工数管理</title>
+    <title>工数管理 (予実比較分析・最終版)</title>
     <style>
         :root {
             --border: #bcbcbc;
@@ -19,8 +19,8 @@
             --wbs-w: 1120px; 
             
             /* ヒートマップ用色定義 */
-            --overload-bg: #ffdddd; /* 8h超えの背景色 */
-            --overload-col: #cc0000; /* 8h超えの文字色 */
+            --overload-bg: #ffdddd; 
+            --overload-col: #cc0000; 
         }
 
         * { box-sizing: border-box; }
@@ -102,7 +102,6 @@
             border-bottom: 1px solid #888;
         }
 
-        /* フィルタメニューが隠れないようにoverflow設定を変更 */
         .header .col-owner, 
         .header .col-date,
         .header .col-progress { overflow: visible !important; position: relative; } 
@@ -113,12 +112,10 @@
         .col-date { width: 135px; } 
 
         .col-h { width: 75px; justify-content: center; padding-right: 2px; }
-        
         .col-ratio { width: 55px; justify-content: center; font-size: 11px; }
         .col-progress { width: 75px; justify-content: center; }
         .col-op { width: 140px; justify-content: center; border-right: none !important; gap: 6px; padding: 0 2px; }
 
-        /* 進捗の見た目調整 */
         .progress-input-wrapper { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
         .progress-input-wrapper input { width: 100%; text-align: center; }
 
@@ -173,137 +170,72 @@
         }
         .icon-ref:hover { background: #e0f2fe; border-color: var(--work-blue); color: var(--excel-blue); }
 
-        .filter-icon { 
-            cursor: pointer; margin-left: 2px; color: #666; font-size: 10px; 
-            border: 1px solid #999; border-radius: 3px; padding: 1px 2px; background: #eee; flex-shrink: 0;
-            display: inline-block; line-height: 1;
-        }
+        /* フィルタメニュー等は省略せず記述 */
+        .filter-icon { cursor: pointer; margin-left: 2px; color: #666; font-size: 10px; border: 1px solid #999; border-radius: 3px; padding: 1px 2px; background: #eee; flex-shrink: 0; display: inline-block; line-height: 1; }
         .filter-icon:hover { background: #ddd; }
         .filter-active { background: var(--excel-blue); color: #fff; border-color: var(--excel-blue); }
-        
-        .filter-menu {
-            position: absolute; top: 100%; left: 0; 
-            width: max-content; 
-            min-width: 150px;   
-            background: #fff; border: 1px solid #999; box-shadow: 2px 2px 10px rgba(0,0,0,0.2); 
-            z-index: 1000; display: none; flex-direction: column; padding: 5px;
-            text-align: left; font-weight: normal; max-height: 300px; overflow-y: auto;
-            margin-top: 1px;
-            white-space: nowrap; 
-        }
+        .filter-menu { position: absolute; top: 100%; left: 0; width: max-content; min-width: 150px; background: #fff; border: 1px solid #999; box-shadow: 2px 2px 10px rgba(0,0,0,0.2); z-index: 1000; display: none; flex-direction: column; padding: 5px; text-align: left; font-weight: normal; max-height: 300px; overflow-y: auto; margin-top: 1px; white-space: nowrap; }
         .col-progress .filter-menu { left: auto; right: 0; } 
-
-        .filter-menu label { 
-            display: flex; 
-            align-items: center; 
-            justify-content: flex-start;
-            gap: 8px; 
-            padding: 4px 8px; 
-            cursor: pointer;
-            width: 100%;
-        }
+        .filter-menu label { display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 4px 8px; cursor: pointer; width: 100%; }
         .filter-menu label:hover { background: #f0f0f0; }
         .filter-menu input[type="checkbox"] { margin: 0; width: auto; cursor: pointer; }
-        
         .date-filter-container { padding: 8px; }
         .date-filter-input { width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 2px; box-sizing: border-box; }
-
         .filter-actions { border-top: 1px solid #ddd; padding-top: 5px; margin-top: 5px; display: flex; justify-content: space-between; }
         .filter-actions button { padding: 3px 8px; font-size: 11px; }
 
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000;
-        }
-        #memo-modal {
-            z-index: 2000 !important;
-        }
-
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        #memo-modal { z-index: 2000 !important; }
         .modal-content { background: #fff; width: 750px; padding: 25px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
         .modal-content h3 { margin: 0 0 15px 0; font-size: 16px; color: var(--excel-blue); border-bottom: 2px solid var(--excel-blue); padding-bottom: 8px; }
         .modal-content textarea { width: 100%; height: 350px; margin-bottom: 20px; padding: 12px; font-family: inherit; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; line-height: 1.6; }
         .modal-btns { display: flex; justify-content: flex-end; gap: 12px; }
 
-        /* 実績参照モーダルスタイル */
         .ref-result-area { height: 180px; overflow-y: auto; border: 1px solid #eee; margin-bottom: 10px; }
         .ref-table { width: 100%; border-collapse: collapse; font-size: 12px; }
         .ref-table th { background: #f2f2f2; position: sticky; top: 0; padding: 6px; text-align: left; border-bottom: 1px solid #ccc; }
         .ref-table td { padding: 6px; border-bottom: 1px solid #eee; }
         .ref-table tr:hover { background: #f9f9f9; }
-        
         .ref-summary { display: flex; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px; align-items: center; border: 1px solid #ddd; }
         .select-btn { padding: 3px 8px; font-size: 11px; border: 1px solid #999; color: #333; background: #fff; border-radius: 3px; cursor: pointer; }
         .select-btn:hover { background: #eee; }
-
         .search-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
         .search-row input { border: 1px solid #ccc; padding: 6px; border-radius: 3px; flex-grow: 1; }
         .search-row select { border: 1px solid #ccc; padding: 6px; border-radius: 3px; min-width: 120px; }
-
-        /* スライダー調整エリア */
-        .ref-adjust-area { 
-            background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 15px; 
-            display: flex; flex-direction: column; gap: 8px; position: relative;
-        }
+        .ref-adjust-area { background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; position: relative; }
         .adjust-controls { display: flex; align-items: center; gap: 15px; position: relative; height: 40px; }
         .slider-wrapper { position: relative; flex-grow: 1; height: 100%; display: flex; align-items: center; }
-        
-        /* グラフ描画用キャンバス */
-        #dist-canvas {
-            position: absolute; left: 0; top: 0; width: 100%; height: 100%; 
-            pointer-events: none; z-index: 1;
-            opacity: 0.9;
-        }
-
-        /* スライダー本体 */
-        input[type="range"] { 
-            width: 100%; margin: 0; position: relative; z-index: 2; cursor: pointer;
-            -webkit-appearance: none; background: transparent; 
-        }
-        input[type="range"]::-webkit-slider-runnable-track {
-            background: rgba(0,0,0,0.05); height: 6px; border-radius: 3px;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; background: var(--excel-blue); width: 16px; height: 16px; border-radius: 50%;
-            margin-top: -5px; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-
+        #dist-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; opacity: 0.9; }
+        input[type="range"] { width: 100%; margin: 0; position: relative; z-index: 2; cursor: pointer; -webkit-appearance: none; background: transparent; }
+        input[type="range"]::-webkit-slider-runnable-track { background: rgba(0,0,0,0.05); height: 6px; border-radius: 3px; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; background: var(--excel-blue); width: 16px; height: 16px; border-radius: 50%; margin-top: -5px; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
         .adjust-val-box { display: flex; align-items: center; gap: 5px; font-weight: bold; background: #f0f8ff; padding: 5px 10px; border-radius: 4px; border: 1px solid #2f5597; color: #2f5597; z-index: 2; }
         .adjust-val-box input { width: 60px; text-align: right; border: none; font-size: 16px; font-weight: bold; color: #2f5597; outline: none; background: transparent; }
-
-        /* スライダー下の詳細情報 */
-        #dist-info {
-            font-size: 12px; color: #444; background: #f9f9f9; padding: 5px 10px; border-radius: 4px; min-height: 24px;
-            display: flex; align-items: center; border: 1px solid #eee;
-        }
+        #dist-info { font-size: 12px; color: #444; background: #f9f9f9; padding: 5px 10px; border-radius: 4px; min-height: 24px; display: flex; align-items: center; border: 1px solid #eee; }
         .dist-highlight { color: #2f5597; font-weight: bold; margin-right: 5px; }
-
-        @keyframes blink-red {
-            0% { color: #dc2626; opacity: 1; }
-            50% { color: #dc2626; opacity: 0.4; }
-            100% { color: #dc2626; opacity: 1; }
-        }
-        .overdue-blink {
-            animation: blink-red 1s infinite;
-            color: #dc2626 !important;
-            font-weight: bold;
-        }
-        /* 実績参照のチェックボックス */
         .ref-checkbox { width: 20px; text-align: center; }
         .ref-checkbox input[type="checkbox"] { width: auto; }
-        /* チェックボックスの幅調整のため、テーブルの最初の列も調整 */
         .ref-table thead tr th:first-child { width: 25px; } 
 
-        /* ヒートマップ表示 (8h超え) - 日付セルのみ適用 */
+        /* ヒートマップ (日付セルのみ) */
         .over-limit { background-color: var(--overload-bg) !important; color: var(--overload-col) !important; font-weight: bold; }
         .over-limit input { color: var(--overload-col) !important; font-weight: bold; }
         
-        /* 日報モーダル用スタイル */
+        /* 日報用 */
         .report-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
         .report-table th, .report-table td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
         .report-table th { background: #f2f2f2; font-weight: bold; text-align: center; }
         .report-table .num-cell { text-align: right; }
         .report-over-limit { background-color: var(--overload-bg); color: var(--overload-col); font-weight: bold; }
         .report-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+
+        /* 分析ダッシュボード用 */
+        .chart-container { display: flex; flex-direction: column; gap: 20px; padding: 10px; }
+        .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; width: 100%; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .chart-box h4 { margin: 0 0 10px 0; font-size: 14px; color: #555; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        canvas.chart { width: 100%; /* heightはJSで制御 */ }
+        .ana-header { display:flex; gap:15px; align-items:center; background:#f0f0f0; padding:10px; border-radius:4px; margin-bottom:10px; }
+        .ana-header label { font-weight:bold; font-size:12px; }
     </style>
 </head>
 <body>
@@ -314,6 +246,7 @@
         <button onclick="downloadJSON()">📥 保存</button>
         <button onclick="document.getElementById('fileIn').click()">📤 読込</button>
         <button onclick="openReport()">📊 日報</button> 
+        <button onclick="openAnalyze()">📈 分析</button>
         <input type="file" id="fileIn" style="display:none" accept=".json" onchange="uploadJSON(event)">
         
         <span id="tracker-status" style="margin-left:20px; font-weight:bold; color:#dc2626;"></span>
@@ -439,7 +372,7 @@
         </div>
     </div>
 
-    <!-- 追加: 日報集計用モーダル -->
+    <!-- 日報集計用モーダル -->
     <div id="report-modal" class="modal-overlay">
         <div class="modal-content" style="width: 800px; height: 80%; display:flex; flex-direction:column;">
             <h3>担当者別・日次実績集計</h3>
@@ -466,12 +399,46 @@
         </div>
     </div>
 
+    <!-- 分析ダッシュボード用モーダル -->
+    <div id="analyze-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 950px; height: 95%; display:flex; flex-direction:column; overflow:hidden;">
+            <h3>プロジェクト分析ダッシュボード</h3>
+            <div class="ana-header">
+                <label>期間: <input type="date" id="ana-start" onchange="renderCharts()"> ～ <input type="date" id="ana-end" onchange="renderCharts()"></label>
+                <label>分析対象: 
+                    <select id="ana-target" onchange="renderCharts()" style="padding:4px;">
+                        <option value="">(全プロジェクト・親タスク比較)</option>
+                    </select>
+                </label>
+                <button onclick="renderCharts()">更新</button>
+            </div>
+            <div style="flex-grow: 1; overflow-y: auto; padding: 10px; background:#f5f5f5;">
+                <div class="chart-container">
+                    <!-- 予実比較 (横棒グラフ) -->
+                    <div class="chart-box">
+                        <h4>予実比較 (見積 vs 実績)</h4>
+                        <div id="chart-compare-container" style="overflow-x:auto;">
+                            <canvas id="chart-bar-compare"></canvas>
+                        </div>
+                    </div>
+                    <!-- 日別工数推移 (合計) -->
+                    <div class="chart-box">
+                        <h4>日別工数推移 (合計)</h4>
+                        <canvas id="chart-bar-daily" class="chart" style="height: 250px;"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-btns" style="margin-top:15px;">
+                <button onclick="document.getElementById('analyze-modal').style.display='none'">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // ファイル名からstorageキーを生成
         function getStorageKey() {
             const path = window.location.pathname;
             const fileName = path.split('/').pop().replace('.html', '') || 'default';
-            return `workload-mgmt-v30-final-with-heatmap`; 
+            return `workload-mgmt-v33-horizontal`; 
         }
         
         let tasks = JSON.parse(localStorage.getItem(getStorageKey())) || [
@@ -484,14 +451,10 @@
         let dragIdx = null;
         let currentMemoId = null;
         let currentRefTaskId = null;
-
-        // 検索結果の実績値を一時保存
         let currentRefResults = [];
-
         let visibleOwners = null; 
         let visibleProgress = null;
         let visibleStartDate = null; 
-        
         let dailyLoadMap = {};
         const OVERLOAD_LIMIT = 8; 
 
@@ -499,6 +462,7 @@
         const wbsBodyContainer = document.getElementById('wbs-body-container');
         ganttContainer.addEventListener('scroll', () => { wbsBodyContainer.scrollTop = ganttContainer.scrollTop; });
 
+        // (中略: イベントリスナー、定数定義、基本関数は前回と同様)
         document.addEventListener('click', function(e) {
             const menu = document.getElementById('filter-menu');
             const btn = document.getElementById('filter-btn');
@@ -522,12 +486,10 @@
 
         function updateLogic() {
             let major = 0, minor = 0;
-            // No採番
             tasks.forEach(t => {
                 if (t.isGroup) { major++; minor = 0; t.no = major.toString(); }
                 else { minor++; t.no = major === 0 ? minor.toString() : `${major}.${minor}`; }
             });
-            // 集計
             for (let i = 0; i < tasks.length; i++) {
                 let tEst = 0, tSum = 0, weightedProg = 0, minS = null, maxE = null, hasChild = false;
                 if (tasks[i].isGroup) {
@@ -551,28 +513,23 @@
                     } else { tasks[i].computedSum = Object.values(tasks[i].hours).reduce((a, b) => a + Number(b), 0); }
                 } else { tasks[i].computedSum = Object.values(tasks[i].hours).reduce((a, b) => a + Number(b), 0); }
             }
-            
-            // ヒートマップ用集計
             dailyLoadMap = {};
             tasks.forEach(t => {
                 if (!t.isGroup && t.owner) {
                     const owner = t.owner;
                     if (!dailyLoadMap[owner]) dailyLoadMap[owner] = {};
-                    
                     Object.keys(t.hours).forEach(date => {
                         const val = parseFloat(t.hours[date]);
-                        if (!isNaN(val)) {
-                            dailyLoadMap[owner][date] = (dailyLoadMap[owner][date] || 0) + val;
-                        }
+                        if (!isNaN(val)) dailyLoadMap[owner][date] = (dailyLoadMap[owner][date] || 0) + val;
                     });
                 }
             });
         }
 
         /* フィルタ関数群（省略） */
-        function toggleFilterMenu(e) { /* 省略 */ e.stopPropagation(); document.getElementById('prog-filter-menu').style.display = 'none'; document.getElementById('date-filter-menu').style.display = 'none'; const menu = document.getElementById('filter-menu'); if (menu.style.display === 'flex') { menu.style.display = 'none'; return; } const owners = new Set(); tasks.forEach(t => owners.add(t.owner || "")); const sortedOwners = Array.from(owners).sort(); menu.innerHTML = ''; const allBtnDiv = document.createElement('div'); allBtnDiv.style.padding = "4px"; allBtnDiv.style.borderBottom = "1px solid #eee"; allBtnDiv.style.marginBottom = "4px"; allBtnDiv.style.display = "flex"; allBtnDiv.style.gap = "10px"; allBtnDiv.style.justifyContent = "center"; const btnAll = document.createElement('button'); btnAll.innerText = "すべて"; btnAll.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true); const btnClear = document.createElement('button'); btnClear.innerText = "解除"; btnClear.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false); allBtnDiv.appendChild(btnAll); allBtnDiv.appendChild(btnClear); menu.appendChild(allBtnDiv); sortedOwners.forEach(owner => { const val = owner === "" ? "(未割当)" : owner; const label = document.createElement('label'); const chk = document.createElement('input'); chk.type = "checkbox"; chk.value = owner; if (visibleOwners === null || visibleOwners.has(owner)) chk.checked = true; const span = document.createElement('span'); span.innerText = val; label.appendChild(chk); label.appendChild(span); menu.appendChild(label); }); const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions'; const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用"; applyBtn.onclick = () => { const checked = menu.querySelectorAll('input[type="checkbox"]:checked'); if (checked.length === sortedOwners.length) { visibleOwners = null; document.getElementById('filter-btn').classList.remove('filter-active'); } else { visibleOwners = new Set(); checked.forEach(c => visibleOwners.add(c.value)); document.getElementById('filter-btn').classList.add('filter-active'); } menu.style.display = 'none'; render(); }; actionDiv.appendChild(applyBtn); menu.appendChild(actionDiv); menu.style.display = 'flex'; }
-        function toggleProgressFilterMenu(e) { /* 省略 */ e.stopPropagation(); document.getElementById('filter-menu').style.display = 'none'; document.getElementById('date-filter-menu').style.display = 'none'; const menu = document.getElementById('prog-filter-menu'); if (menu.style.display === 'flex') { menu.style.display = 'none'; return; } menu.innerHTML = ''; const options = [ { val: 'incomplete', text: '未完了' }, { val: 'complete', text: '完了 (100%)' } ]; const allBtnDiv = document.createElement('div'); allBtnDiv.style.padding = "4px"; allBtnDiv.style.borderBottom = "1px solid #eee"; allBtnDiv.style.marginBottom = "4px"; allBtnDiv.style.display = "flex"; allBtnDiv.style.gap = "10px"; allBtnDiv.style.justifyContent = "center"; const btnAll = document.createElement('button'); btnAll.innerText = "すべて"; btnAll.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true); const btnClear = document.createElement('button'); btnClear.innerText = "解除"; btnClear.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false); allBtnDiv.appendChild(btnAll); allBtnDiv.appendChild(btnClear); menu.appendChild(allBtnDiv); options.forEach(opt => { const label = document.createElement('label'); const chk = document.createElement('input'); chk.type = "checkbox"; chk.value = opt.val; if (visibleProgress === null || visibleProgress.has(opt.val)) chk.checked = true; const span = document.createElement('span'); span.innerText = opt.text; label.appendChild(chk); label.appendChild(span); menu.appendChild(label); }); const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions'; const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用"; applyBtn.onclick = () => { const checked = menu.querySelectorAll('input[type="checkbox"]:checked'); if (checked.length === options.length) { visibleProgress = null; document.getElementById('prog-filter-btn').classList.remove('filter-active'); } else { visibleProgress = new Set(); checked.forEach(c => visibleProgress.add(c.value)); document.getElementById('prog-filter-btn').classList.add('filter-active'); } menu.style.display = 'none'; render(); }; actionDiv.appendChild(applyBtn); menu.appendChild(actionDiv); menu.style.display = 'flex'; }
-        function toggleDateFilterMenu(e) { /* 省略 */ e.stopPropagation(); document.getElementById('filter-menu').style.display = 'none'; document.getElementById('prog-filter-menu').style.display = 'none'; const menu = document.getElementById('date-filter-menu'); if (menu.style.display === 'flex') { menu.style.display = 'none'; return; } menu.innerHTML = ''; const divContainer = document.createElement('div'); divContainer.className = 'date-filter-container'; divContainer.innerHTML = '<div style="margin-bottom:4px; font-weight:bold; font-size:11px;">指定日以降を表示:</div>'; const dateInput = document.createElement('input'); dateInput.type = 'date'; dateInput.className = 'date-filter-input'; if (visibleStartDate) dateInput.value = visibleStartDate; divContainer.appendChild(dateInput); menu.appendChild(divContainer); const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions'; const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用"; applyBtn.onclick = () => { const val = dateInput.value; if (val) { visibleStartDate = val; document.getElementById('date-filter-btn').classList.add('filter-active'); } else { visibleStartDate = null; document.getElementById('date-filter-btn').classList.remove('filter-active'); } menu.style.display = 'none'; render(); }; const clearBtn = document.createElement('button'); clearBtn.innerText = "解除"; clearBtn.onclick = () => { visibleStartDate = null; document.getElementById('date-filter-btn').classList.remove('filter-active'); menu.style.display = 'none'; render(); }; actionDiv.appendChild(applyBtn); actionDiv.appendChild(clearBtn); menu.appendChild(actionDiv); menu.style.display = 'flex'; }
+        function toggleFilterMenu(e) { e.stopPropagation(); document.getElementById('prog-filter-menu').style.display = 'none'; document.getElementById('date-filter-menu').style.display = 'none'; const menu = document.getElementById('filter-menu'); if (menu.style.display === 'flex') { menu.style.display = 'none'; return; } const owners = new Set(); tasks.forEach(t => owners.add(t.owner || "")); const sortedOwners = Array.from(owners).sort(); menu.innerHTML = ''; const allBtnDiv = document.createElement('div'); allBtnDiv.style.padding = "4px"; allBtnDiv.style.borderBottom = "1px solid #eee"; allBtnDiv.style.marginBottom = "4px"; allBtnDiv.style.display = "flex"; allBtnDiv.style.gap = "10px"; allBtnDiv.style.justifyContent = "center"; const btnAll = document.createElement('button'); btnAll.innerText = "すべて"; btnAll.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true); const btnClear = document.createElement('button'); btnClear.innerText = "解除"; btnClear.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false); allBtnDiv.appendChild(btnAll); allBtnDiv.appendChild(btnClear); menu.appendChild(allBtnDiv); sortedOwners.forEach(owner => { const val = owner === "" ? "(未割当)" : owner; const label = document.createElement('label'); const chk = document.createElement('input'); chk.type = "checkbox"; chk.value = owner; if (visibleOwners === null || visibleOwners.has(owner)) chk.checked = true; const span = document.createElement('span'); span.innerText = val; label.appendChild(chk); label.appendChild(span); menu.appendChild(label); }); const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions'; const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用"; applyBtn.onclick = () => { const checked = menu.querySelectorAll('input[type="checkbox"]:checked'); if (checked.length === sortedOwners.length) { visibleOwners = null; document.getElementById('filter-btn').classList.remove('filter-active'); } else { visibleOwners = new Set(); checked.forEach(c => visibleOwners.add(c.value)); document.getElementById('filter-btn').classList.add('filter-active'); } menu.style.display = 'none'; render(); }; actionDiv.appendChild(applyBtn); menu.appendChild(actionDiv); menu.style.display = 'flex'; }
+        function toggleProgressFilterMenu(e) { e.stopPropagation(); document.getElementById('filter-menu').style.display = 'none'; document.getElementById('date-filter-menu').style.display = 'none'; const menu = document.getElementById('prog-filter-menu'); if (menu.style.display === 'flex') { menu.style.display = 'none'; return; } menu.innerHTML = ''; const options = [ { val: 'incomplete', text: '未完了' }, { val: 'complete', text: '完了 (100%)' } ]; const allBtnDiv = document.createElement('div'); allBtnDiv.style.padding = "4px"; allBtnDiv.style.borderBottom = "1px solid #eee"; allBtnDiv.style.marginBottom = "4px"; allBtnDiv.style.display = "flex"; allBtnDiv.style.gap = "10px"; allBtnDiv.style.justifyContent = "center"; const btnAll = document.createElement('button'); btnAll.innerText = "すべて"; btnAll.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true); const btnClear = document.createElement('button'); btnClear.innerText = "解除"; btnClear.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false); allBtnDiv.appendChild(btnAll); allBtnDiv.appendChild(btnClear); menu.appendChild(allBtnDiv); options.forEach(opt => { const label = document.createElement('label'); const chk = document.createElement('input'); chk.type = "checkbox"; chk.value = opt.val; if (visibleProgress === null || visibleProgress.has(opt.val)) chk.checked = true; const span = document.createElement('span'); span.innerText = opt.text; label.appendChild(chk); label.appendChild(span); menu.appendChild(label); }); const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions'; const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用"; applyBtn.onclick = () => { const checked = menu.querySelectorAll('input[type="checkbox"]:checked'); if (checked.length === options.length) { visibleProgress = null; document.getElementById('prog-filter-btn').classList.remove('filter-active'); } else { visibleProgress = new Set(); checked.forEach(c => visibleProgress.add(c.value)); document.getElementById('prog-filter-btn').classList.add('filter-active'); } menu.style.display = 'none'; render(); }; actionDiv.appendChild(applyBtn); menu.appendChild(actionDiv); menu.style.display = 'flex'; }
+        function toggleDateFilterMenu(e) { e.stopPropagation(); document.getElementById('filter-menu').style.display = 'none'; document.getElementById('prog-filter-menu').style.display = 'none'; const menu = document.getElementById('date-filter-menu'); if (menu.style.display === 'flex') { menu.style.display = 'none'; return; } menu.innerHTML = ''; const divContainer = document.createElement('div'); divContainer.className = 'date-filter-container'; divContainer.innerHTML = '<div style="margin-bottom:4px; font-weight:bold; font-size:11px;">指定日以降を表示:</div>'; const dateInput = document.createElement('input'); dateInput.type = 'date'; dateInput.className = 'date-filter-input'; if (visibleStartDate) dateInput.value = visibleStartDate; divContainer.appendChild(dateInput); menu.appendChild(divContainer); const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions'; const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用"; applyBtn.onclick = () => { const val = dateInput.value; if (val) { visibleStartDate = val; document.getElementById('date-filter-btn').classList.add('filter-active'); } else { visibleStartDate = null; document.getElementById('date-filter-btn').classList.remove('filter-active'); } menu.style.display = 'none'; render(); }; const clearBtn = document.createElement('button'); clearBtn.innerText = "解除"; clearBtn.onclick = () => { visibleStartDate = null; document.getElementById('date-filter-btn').classList.remove('filter-active'); menu.style.display = 'none'; render(); }; actionDiv.appendChild(applyBtn); actionDiv.appendChild(clearBtn); menu.appendChild(actionDiv); menu.style.display = 'flex'; }
 
         function render() {
             updateLogic();
@@ -675,12 +632,7 @@
                     <div class="cell col-owner"><input value="${t.owner}" onchange="upd(${t.id},'owner',this.value)" ${t.isGroup?'readonly':''}></div>
                     <div class="cell col-date">${dateCell('start')}</div>
                     <div class="cell col-date">${dateCell('end')}</div>
-                    
-                    <div class="cell col-h">
-                        <input type="number" min="0" step="0.1" value="${Number(t.est || 0).toFixed(1)}" onchange="upd(${t.id},'est',this.value)" ${t.isGroup?'readonly':''}>
-                        ${!t.isGroup ? `<div class="icon-ref" onclick="openRef(${t.id})" title="実績参照">🔍</div>` : ''}
-                    </div>
-                    
+                    <div class="cell col-h"><input type="number" min="0" step="0.1" value="${Number(t.est || 0).toFixed(1)}" onchange="upd(${t.id},'est',this.value)" ${t.isGroup?'readonly':''}>${!t.isGroup ? `<div class="icon-ref" onclick="openRef(${t.id})" title="実績参照">🔍</div>` : ''}</div>
                     <div class="cell col-h center" style="font-weight:bold">${t.computedSum.toFixed(1)}</div>
                     <div class="cell col-h center" style="color:${remain<0?'red':'inherit'}">${remain}</div>
                     <div class="cell col-ratio center" style="color:${ratio>100?'red':'inherit'}">${ratio}%</div>
@@ -701,20 +653,15 @@
                     const val = (valRaw !== undefined) ? valRaw.toFixed(1) : "";
                     const inR = d.str >= t.start && d.str <= t.end;
 
-                    // ヒートマップ判定 (8h超え)
                     let isOver = false;
                     let totalLoad = 0;
                     if (!t.isGroup && t.owner && dailyLoadMap[t.owner] && dailyLoadMap[t.owner][d.str]) {
                         totalLoad = dailyLoadMap[t.owner][d.str];
-                        if (totalLoad > OVERLOAD_LIMIT) {
-                            isOver = true;
-                        }
+                        if (totalLoad > OVERLOAD_LIMIT) isOver = true;
                     }
-
                     const c = document.createElement('div');
                     c.className = `cell day-cell ${d.w===6?'sat':d.w===0?'sun':''} ${inR?'in-range':''} ${d.isToday?'is-today-col':''} ${isOver ? 'over-limit' : ''}`;
                     if (isOver) c.title = `担当:${t.owner} 合計:${totalLoad.toFixed(1)}h (過負荷)`;
-                    
                     if (!t.isGroup) {
                         const inv = document.createElement('input');
                         inv.type = "number"; inv.min = "0"; inv.step = "0.1"; inv.className = "hour-input";
@@ -728,7 +675,7 @@
             });
         }
 
-        /* 以下、メモ機能・進捗更新・実績参照（チェックボックス、スライダー、グラフ）・日報 */
+        /* 既存機能関数群 */
         function openMemo(id) {
             const t = tasks.find(x => x.id === id); if(!t) return;
             currentMemoId = id;
@@ -754,72 +701,36 @@
             if (t) { t.memo = document.getElementById('memo-text').value; render(); }
             closeMemo();
         }
-
         function upd(id, f, v) { 
             const t = tasks.find(x => x.id === id); 
             if(t) { 
                 if((f==='est' || f==='progress') && v < 0) v = 0; 
                 if (f === 'progress') {
-                    const oldProgress = Number(t.progress || 0);
-                    const newProgress = Number(v);
-                    
-                    // 99%以上から100%への変更を検出
-                    if (newProgress >= 100 && oldProgress < 100) {
-                        t[f] = 100; 
-                        render(); 
-                        const confirmMsg = `タスク「${t.title}」が完了しました。\n振り返りとしてメモを入力しますか？`;
-                        if (confirm(confirmMsg)) { openMemo(id); }
-                        return;
-                    } else if (Number(v) >= 100) {
-                        t[f] = 100;
-                    } else {
-                        t[f] = Number(v);
-                    }
+                    if (Number(v) >= 100) { t[f] = 100; if (Number(t.progress || 0) < 100 && !t.memo) { render(); const confirmMsg = `タスク「${t.title}」が完了しました。\n振り返りとしてメモを入力しますか？`; if (confirm(confirmMsg)) { openMemo(id); } return; } } else { t[f] = Number(v); }
                 } else { t[f] = v; }
                 render(); 
             } 
         }
-
         function openRef(id) {
             const t = tasks.find(x => x.id === id); if(!t) return;
             currentRefTaskId = id;
             document.getElementById('ref-search-key').value = t.title; 
-            const owners = new Set();
-            tasks.forEach(task => { if(task.owner) owners.add(task.owner); });
-            const sel = document.getElementById('ref-search-owner');
-            sel.innerHTML = '<option value="">(全担当者)</option>';
-            Array.from(owners).sort().forEach(o => {
-                const opt = document.createElement('option');
-                opt.value = o; opt.innerText = o;
-                sel.appendChild(opt);
-            });
+            const owners = new Set(); tasks.forEach(task => { if(task.owner) owners.add(task.owner); });
+            const sel = document.getElementById('ref-search-owner'); sel.innerHTML = '<option value="">(全担当者)</option>';
+            Array.from(owners).sort().forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.innerText = o; sel.appendChild(opt); });
             document.getElementById('ref-search-status').value = "";
             setAdjustVal(0); drawDistribution([], 20); updateDistInfo(0);
-            document.getElementById('ref-modal').style.display = 'flex';
-            searchRef(); 
+            document.getElementById('ref-modal').style.display = 'flex'; searchRef(); 
         }
         function closeRef() { document.getElementById('ref-modal').style.display = 'none'; currentRefTaskId = null; }
         function toggleSelectAll(checked) { currentRefResults.forEach(r => r.isSelected = checked); renderRefList(); recalculateSummary(); }
-        function toggleRefSelection(index, checked) {
-            if (currentRefResults[index]) {
-                currentRefResults[index].isSelected = checked;
-                recalculateSummary();
-                const selectAll = document.getElementById('select-all-ref');
-                const selectedCount = currentRefResults.filter(r => r.isSelected).length;
-                const totalCount = currentRefResults.length;
-                if (totalCount === 0) { selectAll.checked = false; selectAll.indeterminate = false; } 
-                else if (selectedCount === totalCount) { selectAll.checked = true; selectAll.indeterminate = false; } 
-                else if (selectedCount > 0) { selectAll.checked = false; selectAll.indeterminate = true; } 
-                else { selectAll.checked = false; selectAll.indeterminate = false; }
-            }
-        }
+        function toggleRefSelection(index, checked) { if (currentRefResults[index]) { currentRefResults[index].isSelected = checked; recalculateSummary(); const selectAll = document.getElementById('select-all-ref'); const selectedCount = currentRefResults.filter(r => r.isSelected).length; const totalCount = currentRefResults.length; if (totalCount === 0) { selectAll.checked = false; selectAll.indeterminate = false; } else if (selectedCount === totalCount) { selectAll.checked = true; selectAll.indeterminate = false; } else if (selectedCount > 0) { selectAll.checked = false; selectAll.indeterminate = true; } else { selectAll.checked = false; selectAll.indeterminate = false; } } }
         function searchRef() {
             const rawKey = document.getElementById('ref-search-key').value;
             const keywords = rawKey.trim() ? rawKey.toLowerCase().trim().split(/[\s　]+/) : [];
             const ownerFilter = document.getElementById('ref-search-owner').value;
             const statusFilter = document.getElementById('ref-search-status').value;
-            currentRefResults = []; 
-            let currentParentTitle = "-";
+            currentRefResults = []; let currentParentTitle = "-";
             tasks.forEach(t => {
                 if (t.isGroup) { currentParentTitle = t.title; } else {
                     if (t.id !== currentRefTaskId && t.computedSum > 0) {
@@ -839,11 +750,9 @@
             renderRefList(); recalculateSummary();
         }
         function renderRefList() {
-            const tbody = document.getElementById('ref-table-body');
-            tbody.innerHTML = "";
+            const tbody = document.getElementById('ref-table-body'); tbody.innerHTML = "";
             currentRefResults.forEach((item, index) => {
-                const t = item.task;
-                const memoCell = t.memo ? `<button class="icon-btn" style="width:24px;height:24px; margin:0 auto;" onclick="viewRefMemo(${index})" title="メモを表示">📄</button>` : "-";
+                const t = item.task; const memoCell = t.memo ? `<button class="icon-btn" style="width:24px;height:24px; margin:0 auto;" onclick="viewRefMemo(${index})" title="メモを表示">📄</button>` : "-";
                 const tr = document.createElement('tr');
                 tr.innerHTML = `<td class="ref-checkbox"><input type="checkbox" onchange="toggleRefSelection(${index}, this.checked)" ${item.isSelected ? 'checked' : ''}></td><td style="color:#555; font-size:11px;">${item.parent}</td><td>${t.title}</td><td style="text-align:center;">${memoCell}</td><td>${t.owner || '-'}</td><td>${t.computedSum.toFixed(1)}h</td><td style="color:${item.isComplete?'#2f5597':'#d97706'}">${t.progress}%</td><td><button class="select-btn" onclick="setAdjustVal(${t.computedSum})">選択</button></td>`;
                 tbody.appendChild(tr);
@@ -851,8 +760,7 @@
         }
         function recalculateSummary() {
             const selectedResults = currentRefResults.filter(r => r.isSelected);
-            let count = selectedResults.length;
-            let sum = 0, max = 0;
+            let count = selectedResults.length; let sum = 0, max = 0;
             if (count > 0) {
                 sum = selectedResults.reduce((a, b) => a + b.task.computedSum, 0);
                 max = Math.max(...selectedResults.map(r => r.task.computedSum));
@@ -868,21 +776,16 @@
                 drawDistribution([], 20); updateDistInfo(0); setAdjustVal(0);
             }
         }
-        function selectRefVal(type) {
-            const valStr = document.getElementById(type === 'avg' ? 'ref-avg' : 'ref-max').innerText;
-            const val = parseFloat(valStr); if(!isNaN(val)) setAdjustVal(val);
-        }
+        function selectRefVal(type) { const valStr = document.getElementById(type === 'avg' ? 'ref-avg' : 'ref-max').innerText; const val = parseFloat(valStr); if(!isNaN(val)) setAdjustVal(val); }
         function setAdjustVal(val) {
             val = parseFloat(val); if(isNaN(val) || val < 0) val = 0;
             const selectedVals = currentRefResults.filter(r => r.isSelected).map(r => r.task.computedSum);
             const maxRef = selectedVals.length > 0 ? Math.max(...selectedVals) : 0;
             const maxVal = Math.max(20, Math.ceil(Math.max(val*2, maxRef, 0) || 20));
-            const slider = document.getElementById('adjust-slider');
-            slider.max = maxVal; slider.value = val; document.getElementById('adjust-num').value = val.toFixed(1);
+            const slider = document.getElementById('adjust-slider'); slider.max = maxVal; slider.value = val; document.getElementById('adjust-num').value = val.toFixed(1);
             let avg = 0; if (selectedVals.length > 0) { avg = selectedVals.reduce((a,b) => a + b, 0) / selectedVals.length; }
             const distData = currentRefResults.filter(r => r.isSelected).map(r => ({ val: r.task.computedSum, isComplete: r.isComplete }));
-            drawDistribution(distData, maxVal, avg);
-            updateDistInfo(val);
+            drawDistribution(distData, maxVal, avg); updateDistInfo(val);
         }
         function syncSlider(val) { document.getElementById('adjust-slider').value = val; updateDistInfo(val); }
         function syncNum(val) { document.getElementById('adjust-num').value = parseFloat(val).toFixed(1); updateDistInfo(val); }
@@ -904,14 +807,11 @@
             } else { infoEl.innerHTML = `<span class="dist-highlight">${val.toFixed(1)}h 付近の実績:</span> なし`; }
         }
         function applyRefAdjusted() {
-            if(!currentRefTaskId) return;
-            const val = parseFloat(document.getElementById('adjust-num').value); if(isNaN(val)) return;
-            const t = tasks.find(x => x.id === currentRefTaskId); if(t) { t.est = val; render(); }
-            closeRef();
+            if(!currentRefTaskId) return; const val = parseFloat(document.getElementById('adjust-num').value); if(isNaN(val)) return;
+            const t = tasks.find(x => x.id === currentRefTaskId); if(t) { t.est = val; render(); } closeRef();
         }
         function drawDistribution(data, maxRange, average) {
-            const canvas = document.getElementById('dist-canvas');
-            const ctx = canvas.getContext('2d');
+            const canvas = document.getElementById('dist-canvas'); const ctx = canvas.getContext('2d');
             const w = canvas.parentElement.offsetWidth; const h = canvas.parentElement.offsetHeight;
             canvas.width = w; canvas.height = h; ctx.clearRect(0, 0, w, h);
             ctx.strokeStyle = "#eee"; ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
@@ -931,30 +831,19 @@
                 ctx.fillRect(x, yBase - totalH, Math.max(barW - 1, 1), totalH);
             }
             if (average > 0) {
-                const avgX = (average / maxRange) * w;
-                ctx.beginPath(); ctx.strokeStyle = "rgba(255, 0, 0, 0.7)"; ctx.lineWidth = 2; ctx.setLineDash([3, 3]); 
-                ctx.moveTo(avgX, 5); ctx.lineTo(avgX, h - 5); ctx.stroke(); ctx.setLineDash([]); 
+                const avgX = (average / maxRange) * w; ctx.beginPath(); ctx.strokeStyle = "rgba(255, 0, 0, 0.7)"; ctx.lineWidth = 2; ctx.setLineDash([3, 3]); ctx.moveTo(avgX, 5); ctx.lineTo(avgX, h - 5); ctx.stroke(); ctx.setLineDash([]); 
             }
         }
-
-        // --- 追加: 日報機能 ---
-        function openReport() {
-            document.getElementById('report-month').value = new Date().toISOString().slice(0, 7); // 今月
-            renderReportContent();
-            document.getElementById('report-modal').style.display = 'flex';
-        }
-        
+        function openReport() { document.getElementById('report-month').value = new Date().toISOString().slice(0, 7); renderReportContent(); document.getElementById('report-modal').style.display = 'flex'; }
         function renderReportContent() {
-            const ym = document.getElementById('report-month').value;
-            if (!ym) return;
-            const tbody = document.getElementById('report-body');
-            tbody.innerHTML = "";
+            const ym = document.getElementById('report-month').value; if (!ym) return;
+            const tbody = document.getElementById('report-body'); tbody.innerHTML = "";
             const dailyData = {};
             tasks.forEach(t => {
                 if (t.isGroup) return;
                 const owner = t.owner || "(未割当)";
                 Object.keys(t.hours).forEach(date => {
-                    if (!date.startsWith(ym)) return; 
+                    if (!date.startsWith(ym)) return;
                     if (!dailyData[date]) dailyData[date] = {};
                     if (!dailyData[date][owner]) dailyData[date][owner] = { total: 0, taskDetails: [] };
                     const h = t.hours[date];
@@ -963,32 +852,250 @@
                 });
             });
             const sortedDates = Object.keys(dailyData).sort();
-            if (sortedDates.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">データがありません</td></tr>';
-                return;
-            }
+            if (sortedDates.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">データがありません</td></tr>'; return; }
             sortedDates.forEach(date => {
-                const dayData = dailyData[date];
-                const owners = Object.keys(dayData).sort();
+                const dayData = dailyData[date]; const owners = Object.keys(dayData).sort();
                 owners.forEach(owner => {
-                    const data = dayData[owner];
-                    const isOver = data.total > 8; 
-                    const tr = document.createElement('tr');
-                    if (isOver) tr.className = 'report-over-limit';
+                    const data = dayData[owner]; const isOver = data.total > 8; const tr = document.createElement('tr'); if (isOver) tr.className = 'report-over-limit';
                     tr.innerHTML = `<td>${date}</td><td>${owner}</td><td>${data.taskDetails.join(', ')}</td><td class="num-cell">${data.total.toFixed(1)}h</td>`;
                     tbody.appendChild(tr);
                 });
             });
         }
-
         function copyReportToClipboard() {
-            const tbody = document.getElementById('report-body');
-            let text = "日付\t担当者\tタスク内訳\t合計(h)\n";
-            Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
-                const cols = Array.from(tr.querySelectorAll('td')).map(td => td.innerText);
-                if(cols.length > 1) text += cols.join('\t') + "\n";
-            });
+            const tbody = document.getElementById('report-body'); let text = "日付\t担当者\tタスク内訳\t合計(h)\n";
+            Array.from(tbody.querySelectorAll('tr')).forEach(tr => { const cols = Array.from(tr.querySelectorAll('td')).map(td => td.innerText); if(cols.length > 1) text += cols.join('\t') + "\n"; });
             navigator.clipboard.writeText(text).then(() => { alert("クリップボードにコピーしました"); });
+        }
+        
+        function openAnalyze() {
+            // 初期値セット (今月)
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const firstDay = `${year}-${String(month).padStart(2,'0')}-01`;
+            const lastDayObj = new Date(year, month, 0);
+            const lastDay = `${year}-${String(month).padStart(2,'0')}-${String(lastDayObj.getDate()).padStart(2,'0')}`;
+
+            document.getElementById('ana-start').value = firstDay;
+            document.getElementById('ana-end').value = lastDay;
+
+            // 分析対象（親タスク一覧）の更新
+            updateAnalyzeOptions();
+            
+            document.getElementById('analyze-modal').style.display = 'flex';
+            setTimeout(renderCharts, 200); 
+        }
+
+        function updateAnalyzeOptions() {
+            const sel = document.getElementById('ana-target');
+            sel.innerHTML = '<option value="">(全プロジェクト・親タスク比較)</option>';
+            
+            // 親タスク(グループ)のみ抽出
+            tasks.forEach(t => {
+                if(t.isGroup) {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.innerText = t.title;
+                    sel.appendChild(opt);
+                }
+            });
+        }
+
+        // --- 分析チャート描画 ---
+        function renderCharts() {
+            const start = document.getElementById('ana-start').value;
+            const end = document.getElementById('ana-end').value;
+            const targetId = document.getElementById('ana-target').value;
+            
+            if(!start || !end) return;
+
+            const data = getAnalyzeData(start, end, targetId);
+            
+            renderCompareChart(data.compareData); // 予実比較
+            renderDailyChart(data.dailyData); // 日別推移
+        }
+
+        function getAnalyzeData(start, end, targetId) {
+            const isAll = (targetId === "");
+            
+            const compareData = []; // { label, est, act }
+            const dailyData = {}; // { date: totalHours }
+
+            // 日付範囲の初期化
+            let cur = new Date(start);
+            const endObj = new Date(end);
+            while(cur <= endObj) {
+                const ds = cur.toLocaleDateString('sv-SE');
+                dailyData[ds] = 0;
+                cur.setDate(cur.getDate() + 1);
+            }
+
+            // データ集計
+            if(isAll) {
+                // 全グループを対象に、グループ単位で集計
+                tasks.forEach(g => {
+                    if(g.isGroup) {
+                        let gEst = 0;
+                        let gAct = 0;
+                        let inGroup = false;
+                        for(const t of tasks) {
+                            if(t.id === g.id) { inGroup = true; continue; }
+                            if(inGroup && t.isGroup) { inGroup = false; break; }
+                            if(inGroup) {
+                                gEst += Number(t.est || 0);
+                                Object.keys(t.hours).forEach(d => {
+                                    if(d >= start && d <= end) {
+                                        const h = t.hours[d];
+                                        gAct += h;
+                                        if(dailyData[d] !== undefined) dailyData[d] += h;
+                                    }
+                                });
+                            }
+                        }
+                        if(gAct > 0 || gEst > 0) {
+                            compareData.push({ label: g.title, est: gEst, act: gAct });
+                        }
+                    }
+                });
+            } else {
+                // 特定グループ内の子タスク単位で集計
+                let inTarget = false;
+                for(const t of tasks) {
+                    if(t.id == targetId) { inTarget = true; continue; }
+                    if(inTarget && t.isGroup) break;
+                    if(inTarget) {
+                        let tAct = 0;
+                        Object.keys(t.hours).forEach(d => {
+                            if(d >= start && d <= end) {
+                                const h = t.hours[d];
+                                tAct += h;
+                                if(dailyData[d] !== undefined) dailyData[d] += h;
+                            }
+                        });
+                        compareData.push({ label: t.title, est: Number(t.est||0), act: tAct });
+                    }
+                }
+            }
+            return { compareData, dailyData };
+        }
+
+        // 1. 予実比較 (横棒グラフ)
+        function renderCompareChart(items) {
+            const container = document.getElementById('chart-compare-container');
+            const canvas = document.getElementById('chart-bar-compare');
+            const ctx = canvas.getContext('2d');
+            
+            // 件数に応じて高さを自動調整 (最低200px)
+            const itemHeight = 60;
+            const calculatedHeight = Math.max(200, items.length * itemHeight + 50);
+            
+            canvas.style.height = calculatedHeight + 'px'; // CSS高さ
+            canvas.height = calculatedHeight; // 描画高さ
+            
+            // 親コンテナの幅に合わせる
+            const w = canvas.width = container.offsetWidth;
+            const h = canvas.height;
+            
+            ctx.clearRect(0, 0, w, h);
+
+            if(items.length === 0) { 
+                ctx.fillStyle = "#666"; ctx.font = "14px sans-serif";
+                ctx.fillText("データなし", w/2 - 30, h/2); 
+                return; 
+            }
+
+            const maxVal = Math.max(...items.map(t => Math.max(t.est, t.act))) || 10;
+            // 右端に少し余裕を持たせる
+            const xMax = maxVal * 1.2; 
+            
+            // レイアウト設定
+            const labelAreaW = 150; // 左側のラベルエリア
+            const graphAreaW = w - labelAreaW - 20;
+            const barH = 15; // バーの太さ
+            const groupGap = 40; // 項目間の隙間
+
+            // 軸線
+            ctx.strokeStyle = "#ccc";
+            ctx.beginPath(); 
+            ctx.moveTo(labelAreaW, 20); 
+            ctx.lineTo(labelAreaW, h - 20); 
+            ctx.stroke();
+
+            items.forEach((item, i) => {
+                const yBase = 40 + i * (barH * 2 + groupGap);
+                
+                // ラベル (左揃え, 省略あり)
+                ctx.fillStyle = "#333";
+                ctx.font = "12px sans-serif";
+                ctx.textAlign = "right";
+                let label = item.label.length > 18 ? item.label.substr(0,18)+".." : item.label;
+                ctx.fillText(label, labelAreaW - 10, yBase + barH);
+
+                // バーの長さ計算
+                const estW = (item.est / xMax) * graphAreaW;
+                const actW = (item.act / xMax) * graphAreaW;
+
+                // 見積バー (上段, グレー)
+                ctx.fillStyle = "#ccc";
+                ctx.fillRect(labelAreaW, yBase, estW, barH);
+                ctx.textAlign = "left";
+                ctx.fillText(item.est.toFixed(1), labelAreaW + estW + 5, yBase + 12);
+
+                // 実績バー (下段, 青or赤)
+                ctx.fillStyle = item.act > item.est ? "#cc0000" : "#5b9bd5";
+                ctx.fillRect(labelAreaW, yBase + barH + 2, actW, barH);
+                ctx.fillText(item.act.toFixed(1), labelAreaW + actW + 5, yBase + barH + 12 + 2);
+            });
+        }
+
+        // 2. 日別工数推移 (単純棒グラフ)
+        function renderDailyChart(dailyData) {
+            const canvas = document.getElementById('chart-bar-daily');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.parentElement.offsetWidth;
+            const h = canvas.height = 250;
+            ctx.clearRect(0, 0, w, h);
+
+            const dates = Object.keys(dailyData).sort();
+            if(dates.length === 0) { 
+                ctx.fillStyle = "#666"; ctx.font = "14px sans-serif";
+                ctx.fillText("期間内の実績なし", w/2 - 40, h/2); 
+                return; 
+            }
+
+            const maxDaily = Math.max(...Object.values(dailyData)) || 8;
+            const yMax = Math.max(maxDaily, 10); 
+
+            const chartH = h - 40;
+            const barW = Math.min(40, (w - 60) / dates.length - 2);
+            
+            // 軸
+            ctx.strokeStyle = "#ccc";
+            ctx.beginPath(); ctx.moveTo(40, 10); ctx.lineTo(40, h-20); ctx.lineTo(w-10, h-20); ctx.stroke();
+
+            // 8h基準線
+            const y8h = h - 20 - (8 / yMax) * chartH;
+            ctx.strokeStyle = "red"; ctx.setLineDash([2,2]);
+            ctx.beginPath(); ctx.moveTo(40, y8h); ctx.lineTo(w, y8h); ctx.stroke(); ctx.setLineDash([]);
+            ctx.fillStyle = "red"; ctx.textAlign = "left"; ctx.fillText("8h", 10, y8h + 3);
+
+            dates.forEach((d, i) => {
+                const x = 50 + i * ((w - 60) / dates.length);
+                const val = dailyData[d];
+                const barH = (val / yMax) * chartH;
+
+                // バー描画 (8h超えは赤)
+                ctx.fillStyle = val > 8 ? "#ff4444" : "#5b9bd5";
+                ctx.fillRect(x, h - 20 - barH, barW, barH);
+
+                // 日付ラベル (間引く)
+                if (dates.length < 15 || i % Math.ceil(dates.length/10) === 0) {
+                    ctx.fillStyle = "#333";
+                    ctx.textAlign = "center";
+                    ctx.fillText(d.slice(5), x + barW/2, h - 5);
+                }
+            });
         }
 
         // --- タイマー・編集機能 ---
