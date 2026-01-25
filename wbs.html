@@ -427,6 +427,11 @@
                         <h4>日別工数推移</h4>
                         <canvas id="chart-bar-daily" class="chart" style="height: 300px;"></canvas>
                     </div>
+                    <!-- 子タスク要素別 内訳 (円グラフ) -->
+                    <div class="chart-box">
+                        <h4>子タスク要素別 内訳</h4>
+                        <canvas id="chart-pie-subtask" class="chart" style="height: 250px;"></canvas>
+                    </div>
                 </div>
             </div>
             <div class="modal-btns" style="margin-top:15px;">
@@ -926,6 +931,7 @@
             renderCompareChart(data.compareData); // 予実比較
             renderPieChart(data.pieData); // 担当者別工数
             renderDailyChart(data.dailyData); // 日別推移
+            renderSubtaskPieChart(data.subtaskData); // 子タスク要素別
         }
 
         function getAnalyzeData(start, end, targetId) {
@@ -934,6 +940,7 @@
             const compareData = []; // { label, est, act }
             const dailyData = {}; // { date: { owner: hours } }
             const pieData = {}; // { owner: hours }
+            const subtaskData = {}; // { taskTitle: hours } 子タスク要素別
 
             // 日付範囲の配列生成 & dailyData初期化
             let cur = new Date(start);
@@ -967,6 +974,7 @@
                                             dailyData[d][owner] = (dailyData[d][owner] || 0) + h;
                                         }
                                         pieData[owner] = (pieData[owner] || 0) + h;
+                                        subtaskData[t.title] = (subtaskData[t.title] || 0) + h;
                                     }
                                 });
                             }
@@ -993,13 +1001,14 @@
                                     dailyData[d][owner] = (dailyData[d][owner] || 0) + h;
                                 }
                                 pieData[owner] = (pieData[owner] || 0) + h;
+                                subtaskData[t.title] = (subtaskData[t.title] || 0) + h;
                             }
                         });
                         compareData.push({ label: t.title, est: Number(t.est||0), act: tAct });
                     }
                 }
             }
-            return { compareData, dailyData, pieData };
+            return { compareData, dailyData, pieData, subtaskData };
         }
 
         // 1. 予実比較 (横棒グラフ - 数値に(h)追加)
@@ -1194,6 +1203,57 @@
                 ctx.textAlign = "left";
                 ctx.fillText(owner, lx + 15, ly + 9);
                 lx += ctx.measureText(owner).width + 30;
+            });
+        }
+
+        // 4. 子タスク要素別 内訳 (円グラフ)
+        function renderSubtaskPieChart(subtaskData) {
+            const canvas = document.getElementById('chart-pie-subtask');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.parentElement.offsetWidth;
+            const h = canvas.height = 250;
+            ctx.clearRect(0, 0, w, h);
+
+            const keys = Object.keys(subtaskData).sort((a,b) => subtaskData[b] - subtaskData[a]); // 多い順
+            let total = 0;
+            keys.forEach(k => total += subtaskData[k]);
+
+            if(total === 0) { 
+                ctx.fillStyle = "#666"; ctx.font = "14px sans-serif";
+                ctx.fillText("期間内の実績なし", w/2 - 40, h/2); 
+                return; 
+            }
+
+            const colors = ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4', '#70ad47', '#255e91', '#9e480e', '#636363', '#ff6b6b', '#4ecdc4', '#45b7d1'];
+            let startAngle = -Math.PI / 2;
+            const centerX = w/2 - 80, centerY = h/2, radius = Math.min(w,h)/2 - 30;
+
+            keys.forEach((key, i) => {
+                const val = subtaskData[key];
+                if(val <= 0) return;
+                const sliceAngle = (val / total) * 2 * Math.PI;
+                
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+                ctx.closePath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                
+                // 凡例 (右側)
+                const lx = w - 180;
+                const ly = 30 + i * 18;
+                if (ly < h - 20) { // はみ出し防止
+                    ctx.fillStyle = colors[i % colors.length];
+                    ctx.fillRect(lx, ly, 10, 10);
+                    ctx.fillStyle = "#333";
+                    ctx.font = "11px sans-serif";
+                    ctx.textAlign = "left";
+                    let label = key.length > 12 ? key.substr(0,12)+".." : key;
+                    ctx.fillText(`${label}: ${val.toFixed(1)}h (${Math.round(val/total*100)}%)`, lx + 15, ly + 9);
+                }
+
+                startAngle += sliceAngle;
             });
         }
 
