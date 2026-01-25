@@ -931,7 +931,7 @@
             renderCompareChart(data.compareData); // 予実比較
             renderPieChart(data.pieData); // 担当者別工数
             renderDailyChart(data.dailyData); // 日別推移
-            renderSubtaskPieChart(data.subtaskData); // 子タスク要素別
+            renderSubtaskPieChart(data.subtaskData, data.parentTaskData, targetId); // 親/子タスク要素別
         }
 
         function getAnalyzeData(start, end, targetId) {
@@ -941,6 +941,7 @@
             const dailyData = {}; // { date: { owner: hours } }
             const pieData = {}; // { owner: hours }
             const subtaskData = {}; // { taskTitle: hours } 子タスク要素別
+            const parentTaskData = {}; // { groupTitle: hours } 親タスク要素別
 
             // 日付範囲の配列生成 & dailyData初期化
             let cur = new Date(start);
@@ -974,7 +975,7 @@
                                             dailyData[d][owner] = (dailyData[d][owner] || 0) + h;
                                         }
                                         pieData[owner] = (pieData[owner] || 0) + h;
-                                        subtaskData[t.title] = (subtaskData[t.title] || 0) + h;
+                                        parentTaskData[g.title] = (parentTaskData[g.title] || 0) + h;
                                     }
                                 });
                             }
@@ -1008,7 +1009,7 @@
                     }
                 }
             }
-            return { compareData, dailyData, pieData, subtaskData };
+            return { compareData, dailyData, pieData, subtaskData, parentTaskData };
         }
 
         // 1. 予実比較 (横棒グラフ - 数値に(h)追加)
@@ -1206,17 +1207,22 @@
             });
         }
 
-        // 4. 子タスク要素別 内訳 (円グラフ)
-        function renderSubtaskPieChart(subtaskData) {
+        // 4. 子タスク要素別 内訳 (円グラフ) / 親タスク要素別 内訳
+        function renderSubtaskPieChart(subtaskData, parentTaskData, targetId) {
             const canvas = document.getElementById('chart-pie-subtask');
             const ctx = canvas.getContext('2d');
             const w = canvas.width = canvas.parentElement.offsetWidth;
             const h = canvas.height = 250;
             ctx.clearRect(0, 0, w, h);
 
-            const keys = Object.keys(subtaskData).sort((a,b) => subtaskData[b] - subtaskData[a]); // 多い順
+            // targetIdが空文字列の場合は親タスク要素別、そうでない場合は子タスク要素別
+            const isParentView = (targetId === "");
+            const dataToUse = isParentView ? parentTaskData : subtaskData;
+            const chartTitle = isParentView ? "親タスク要素別 内訳" : "子タスク要素別 内訳";
+
+            const keys = Object.keys(dataToUse).sort((a,b) => dataToUse[b] - dataToUse[a]); // 多い順
             let total = 0;
-            keys.forEach(k => total += subtaskData[k]);
+            keys.forEach(k => total += dataToUse[k]);
 
             if(total === 0) { 
                 ctx.fillStyle = "#666"; ctx.font = "14px sans-serif";
@@ -1224,12 +1230,18 @@
                 return; 
             }
 
+            // グラフのタイトルを表示
+            ctx.fillStyle = "#555";
+            ctx.font = "12px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(chartTitle, w/2, 15);
+
             const colors = ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4', '#70ad47', '#255e91', '#9e480e', '#636363', '#ff6b6b', '#4ecdc4', '#45b7d1'];
             let startAngle = -Math.PI / 2;
-            const centerX = w/2 - 80, centerY = h/2, radius = Math.min(w,h)/2 - 30;
+            const centerX = w/2 - 80, centerY = h/2 + 5, radius = Math.min(w,h)/2 - 30;
 
             keys.forEach((key, i) => {
-                const val = subtaskData[key];
+                const val = dataToUse[key];
                 if(val <= 0) return;
                 const sliceAngle = (val / total) * 2 * Math.PI;
                 
@@ -1242,7 +1254,7 @@
                 
                 // 凡例 (右側)
                 const lx = w - 180;
-                const ly = 30 + i * 18;
+                const ly = 35 + i * 18;
                 if (ly < h - 20) { // はみ出し防止
                     ctx.fillStyle = colors[i % colors.length];
                     ctx.fillRect(lx, ly, 10, 10);
