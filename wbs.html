@@ -242,6 +242,7 @@
         <button class="primary" onclick="addTask()">＋ タスク追加</button>
         <button onclick="downloadJSON()">📥 保存</button>
         <button onclick="document.getElementById('fileIn').click()">📤 読込</button>
+        <button onclick="downloadCSV()">📊 CSV出力</button>
         <button onclick="openReport()">📊 日報</button> 
         <button onclick="openAnalyze()">📈 分析</button>
         <input type="file" id="fileIn" style="display:none" accept=".json" onchange="uploadJSON(event)">
@@ -1311,6 +1312,80 @@
         }
         function delT(id) { if(confirm('削除しますか？')) { if(trackingId === id) stopTracking(); tasks = tasks.filter(x => x.id !== id); render(); } }
         function downloadJSON() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' })); a.download = `wbs_data.json`; a.click(); }
+        function downloadCSV() {
+            // ガントチャートの日付範囲を計算（render関数と同じロジック）
+            const todayStr = getLocalDateStr();
+            const todayObj = new Date(todayStr);
+            const allDates = tasks.flatMap(t => [new Date(t.start), new Date(t.end)]);
+            let minD = new Date(Math.min(...allDates, todayObj));
+            minD.setDate(minD.getDate() - 5);
+            let maxD = new Date(Math.max(...allDates, todayObj));
+            maxD.setDate(maxD.getDate() + 25);
+
+            const dateList = [];
+            for (let d = new Date(minD); d <= maxD; d.setDate(d.getDate() + 1)) {
+                const curStr = d.toLocaleDateString('sv-SE');
+                dateList.push(curStr);
+            }
+
+            // CSVヘッダー生成
+            const headers = ['No.', '親タスク', 'タスク', '見積(h)', '実績(h)', '進捗(%)', '担当者', '開始日', '終了日', 'メモ', ...dateList];
+            
+            // 親タスク追跡用
+            let currentParentTitle = '';
+            
+            // CSVデータ行を生成
+            const rows = [];
+            rows.push(headers.map(h => `"${h}"`).join(','));
+            
+            let rowNum = 0;
+            tasks.forEach((t, idx) => {
+                rowNum++;
+                const computedSum = t.computedSum || (t.isGroup ? 0 : Object.values(t.hours).reduce((a, b) => a + Number(b), 0));
+                
+                // 基本情報の行データ
+                const baseRow = [
+                    rowNum,
+                    t.isGroup ? '' : currentParentTitle,
+                    t.title,
+                    t.est || '',
+                    computedSum.toFixed(1),
+                    t.progress || 0,
+                    t.owner || '',
+                    t.start || '',
+                    t.end || '',
+                    t.memo ? `"${t.memo.replace(/"/g, '""')}"` : ''
+                ];
+                
+                // 日付ごとの工数を追加
+                const dateValues = dateList.map(date => {
+                    const val = t.hours && t.hours[date];
+                    return val ? Number(val).toFixed(1) : '';
+                });
+                
+                const row = [...baseRow, ...dateValues];
+                
+                rows.push(row.map((v, i) => {
+                    // 数値列の場合は引用符なし
+                    if ([0, 3, 4, 5].includes(i)) return v;
+                    return typeof v === 'string' && v !== '' ? `"${v}"` : v;
+                }).join(','));
+                
+                if (t.isGroup) {
+                    currentParentTitle = t.title;
+                }
+            });
+            
+            const csvContent = rows.join('\n');
+            
+            // Excelで正しく認識されるようBOM付きUTF-8で出力
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+            const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `wbs_${new Date().toLocaleDateString('sv-SE')}.csv`;
+            a.click();
+        }
         function uploadJSON(e) { const reader = new FileReader(); reader.onload = (ev) => { tasks = JSON.parse(ev.target.result); render(); scrollToToday(); }; reader.readAsText(e.target.files[0]); }
         function scrollToToday() { const target = document.getElementById('today-target'); if (ganttContainer && target) ganttContainer.scrollLeft = target.offsetLeft - 100; }
 
