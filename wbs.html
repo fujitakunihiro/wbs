@@ -417,9 +417,9 @@
                             <canvas id="chart-bar-compare"></canvas>
                         </div>
                     </div>
-                    <!-- 子タスク要素別 内訳 (円グラフ) -->
+                    <!-- タスク 要素割合 (円グラフ) -->
                     <div class="chart-box">
-                        <h4>子タスク要素別 内訳</h4>
+                        <h4>タスク 要素割合</h4>
                         <canvas id="chart-pie-subtask" class="chart" style="height: 250px;"></canvas>
                     </div>
                     <!-- 担当者別 工数内訳 (円グラフ) -->
@@ -1207,7 +1207,7 @@
             });
         }
 
-        // 4. 子タスク要素別 内訳 (円グラフ) / 親タスク要素別 内訳
+        // 4. 子タスク 要素割合 (円グラフ) / 親タスク 要素割合 内訳
         function renderSubtaskPieChart(subtaskData, parentTaskData, targetId) {
             const canvas = document.getElementById('chart-pie-subtask');
             const ctx = canvas.getContext('2d');
@@ -1218,7 +1218,6 @@
             // targetIdが空文字列の場合は親タスク要素別、そうでない場合は子タスク要素別
             const isParentView = (targetId === "");
             const dataToUse = isParentView ? parentTaskData : subtaskData;
-            const chartTitle = isParentView ? "親タスク要素別 内訳" : "子タスク要素別 内訳";
 
             const keys = Object.keys(dataToUse).sort((a,b) => dataToUse[b] - dataToUse[a]); // 多い順
             let total = 0;
@@ -1229,12 +1228,6 @@
                 ctx.fillText("期間内の実績なし", w/2 - 40, h/2); 
                 return; 
             }
-
-            // グラフのタイトルを表示
-            ctx.fillStyle = "#555";
-            ctx.font = "12px sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText(chartTitle, w/2, 15);
 
             const colors = ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4', '#70ad47', '#255e91', '#9e480e', '#636363', '#ff6b6b', '#4ecdc4', '#45b7d1'];
             let startAngle = -Math.PI / 2;
