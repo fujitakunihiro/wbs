@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>工数管理 (予実比較分析・最終版)</title>
+    <title>工数管理 (分析機能強化・完了時メモ)</title>
     <style>
         :root {
             --border: #bcbcbc;
@@ -217,7 +217,7 @@
         .ref-checkbox input[type="checkbox"] { width: auto; }
         .ref-table thead tr th:first-child { width: 25px; } 
 
-        /* ヒートマップ (日付セルのみ) */
+        /* ヒートマップ表示 (8h超え) - 日付セルのみ適用 */
         .over-limit { background-color: var(--overload-bg) !important; color: var(--overload-col) !important; font-weight: bold; }
         .over-limit input { color: var(--overload-col) !important; font-weight: bold; }
         
@@ -438,7 +438,7 @@
         function getStorageKey() {
             const path = window.location.pathname;
             const fileName = path.split('/').pop().replace('.html', '') || 'default';
-            return `workload-mgmt-v33-horizontal`; 
+            return `workload-mgmt-v34-final-rev`; 
         }
         
         let tasks = JSON.parse(localStorage.getItem(getStorageKey())) || [
@@ -462,7 +462,6 @@
         const wbsBodyContainer = document.getElementById('wbs-body-container');
         ganttContainer.addEventListener('scroll', () => { wbsBodyContainer.scrollTop = ganttContainer.scrollTop; });
 
-        // (中略: イベントリスナー、定数定義、基本関数は前回と同様)
         document.addEventListener('click', function(e) {
             const menu = document.getElementById('filter-menu');
             const btn = document.getElementById('filter-btn');
@@ -706,7 +705,16 @@
             if(t) { 
                 if((f==='est' || f==='progress') && v < 0) v = 0; 
                 if (f === 'progress') {
-                    if (Number(v) >= 100) { t[f] = 100; if (Number(t.progress || 0) < 100 && !t.memo) { render(); const confirmMsg = `タスク「${t.title}」が完了しました。\n振り返りとしてメモを入力しますか？`; if (confirm(confirmMsg)) { openMemo(id); } return; } } else { t[f] = Number(v); }
+                    if (Number(v) >= 100) { 
+                        const wasIncomplete = Number(t.progress || 0) < 100;
+                        t[f] = 100; 
+                        if (wasIncomplete) { 
+                            render(); 
+                            const confirmMsg = `タスク「${t.title}」が完了しました。\n振り返りとしてメモを入力しますか？`;
+                            if (confirm(confirmMsg)) { openMemo(id); }
+                            return;
+                        }
+                    } else { t[f] = Number(v); }
                 } else { t[f] = v; }
                 render(); 
             } 
@@ -869,7 +877,6 @@
         }
         
         function openAnalyze() {
-            // 初期値セット (今月)
             const now = new Date();
             const year = now.getFullYear();
             const month = now.getMonth() + 1;
@@ -880,7 +887,6 @@
             document.getElementById('ana-start').value = firstDay;
             document.getElementById('ana-end').value = lastDay;
 
-            // 分析対象（親タスク一覧）の更新
             updateAnalyzeOptions();
             
             document.getElementById('analyze-modal').style.display = 'flex';
@@ -890,8 +896,6 @@
         function updateAnalyzeOptions() {
             const sel = document.getElementById('ana-target');
             sel.innerHTML = '<option value="">(全プロジェクト・親タスク比較)</option>';
-            
-            // 親タスク(グループ)のみ抽出
             tasks.forEach(t => {
                 if(t.isGroup) {
                     const opt = document.createElement('option');
@@ -911,18 +915,15 @@
             if(!start || !end) return;
 
             const data = getAnalyzeData(start, end, targetId);
-            
-            renderCompareChart(data.compareData); // 予実比較
-            renderDailyChart(data.dailyData); // 日別推移
+            renderCompareChart(data.compareData);
+            renderDailyChart(data.dailyData);
         }
 
         function getAnalyzeData(start, end, targetId) {
             const isAll = (targetId === "");
-            
-            const compareData = []; // { label, est, act }
-            const dailyData = {}; // { date: totalHours }
+            const compareData = [];
+            const dailyData = {};
 
-            // 日付範囲の初期化
             let cur = new Date(start);
             const endObj = new Date(end);
             while(cur <= endObj) {
@@ -931,9 +932,7 @@
                 cur.setDate(cur.getDate() + 1);
             }
 
-            // データ集計
             if(isAll) {
-                // 全グループを対象に、グループ単位で集計
                 tasks.forEach(g => {
                     if(g.isGroup) {
                         let gEst = 0;
@@ -959,7 +958,6 @@
                     }
                 });
             } else {
-                // 特定グループ内の子タスク単位で集計
                 let inTarget = false;
                 for(const t of tasks) {
                     if(t.id == targetId) { inTarget = true; continue; }
@@ -980,20 +978,16 @@
             return { compareData, dailyData };
         }
 
-        // 1. 予実比較 (横棒グラフ)
+        // 1. 予実比較 (横棒グラフ - 数値に(h)追加)
         function renderCompareChart(items) {
             const container = document.getElementById('chart-compare-container');
             const canvas = document.getElementById('chart-bar-compare');
             const ctx = canvas.getContext('2d');
             
-            // 件数に応じて高さを自動調整 (最低200px)
             const itemHeight = 60;
             const calculatedHeight = Math.max(200, items.length * itemHeight + 50);
-            
-            canvas.style.height = calculatedHeight + 'px'; // CSS高さ
-            canvas.height = calculatedHeight; // 描画高さ
-            
-            // 親コンテナの幅に合わせる
+            canvas.style.height = calculatedHeight + 'px'; 
+            canvas.height = calculatedHeight;
             const w = canvas.width = container.offsetWidth;
             const h = canvas.height;
             
@@ -1006,50 +1000,44 @@
             }
 
             const maxVal = Math.max(...items.map(t => Math.max(t.est, t.act))) || 10;
-            // 右端に少し余裕を持たせる
-            const xMax = maxVal * 1.2; 
+            const xMax = maxVal * 1.3; // 余裕を増やす
             
-            // レイアウト設定
-            const labelAreaW = 150; // 左側のラベルエリア
-            const graphAreaW = w - labelAreaW - 20;
-            const barH = 15; // バーの太さ
-            const groupGap = 40; // 項目間の隙間
+            const labelAreaW = 150;
+            const graphAreaW = w - labelAreaW - 40; // 右側余裕確保
+            const barH = 15;
+            const groupGap = 40;
 
-            // 軸線
             ctx.strokeStyle = "#ccc";
-            ctx.beginPath(); 
-            ctx.moveTo(labelAreaW, 20); 
-            ctx.lineTo(labelAreaW, h - 20); 
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(labelAreaW, 20); ctx.lineTo(labelAreaW, h - 20); ctx.stroke();
 
             items.forEach((item, i) => {
                 const yBase = 40 + i * (barH * 2 + groupGap);
                 
-                // ラベル (左揃え, 省略あり)
                 ctx.fillStyle = "#333";
                 ctx.font = "12px sans-serif";
                 ctx.textAlign = "right";
                 let label = item.label.length > 18 ? item.label.substr(0,18)+".." : item.label;
                 ctx.fillText(label, labelAreaW - 10, yBase + barH);
 
-                // バーの長さ計算
                 const estW = (item.est / xMax) * graphAreaW;
                 const actW = (item.act / xMax) * graphAreaW;
 
-                // 見積バー (上段, グレー)
+                // 見積バー
                 ctx.fillStyle = "#ccc";
                 ctx.fillRect(labelAreaW, yBase, estW, barH);
                 ctx.textAlign = "left";
-                ctx.fillText(item.est.toFixed(1), labelAreaW + estW + 5, yBase + 12);
+                ctx.fillStyle = "#333";
+                ctx.fillText(item.est.toFixed(1) + "(h)", labelAreaW + estW + 5, yBase + 12); // (h)追加
 
-                // 実績バー (下段, 青or赤)
+                // 実績バー
                 ctx.fillStyle = item.act > item.est ? "#cc0000" : "#5b9bd5";
                 ctx.fillRect(labelAreaW, yBase + barH + 2, actW, barH);
-                ctx.fillText(item.act.toFixed(1), labelAreaW + actW + 5, yBase + barH + 12 + 2);
+                ctx.fillStyle = "#333"; // 文字色は黒に戻す
+                ctx.fillText(item.act.toFixed(1) + "(h)", labelAreaW + actW + 5, yBase + barH + 12 + 2); // (h)追加
             });
         }
 
-        // 2. 日別工数推移 (単純棒グラフ)
+        // 2. 日別工数推移 (実績値をバーの上に表示)
         function renderDailyChart(dailyData) {
             const canvas = document.getElementById('chart-bar-daily');
             const ctx = canvas.getContext('2d');
@@ -1065,16 +1053,14 @@
             }
 
             const maxDaily = Math.max(...Object.values(dailyData)) || 8;
-            const yMax = Math.max(maxDaily, 10); 
+            const yMax = Math.max(maxDaily, 10) * 1.2; // 上に数値を書くため余裕を持たせる
 
             const chartH = h - 40;
             const barW = Math.min(40, (w - 60) / dates.length - 2);
             
-            // 軸
             ctx.strokeStyle = "#ccc";
             ctx.beginPath(); ctx.moveTo(40, 10); ctx.lineTo(40, h-20); ctx.lineTo(w-10, h-20); ctx.stroke();
 
-            // 8h基準線
             const y8h = h - 20 - (8 / yMax) * chartH;
             ctx.strokeStyle = "red"; ctx.setLineDash([2,2]);
             ctx.beginPath(); ctx.moveTo(40, y8h); ctx.lineTo(w, y8h); ctx.stroke(); ctx.setLineDash([]);
@@ -1085,11 +1071,17 @@
                 const val = dailyData[d];
                 const barH = (val / yMax) * chartH;
 
-                // バー描画 (8h超えは赤)
                 ctx.fillStyle = val > 8 ? "#ff4444" : "#5b9bd5";
                 ctx.fillRect(x, h - 20 - barH, barW, barH);
+                
+                // バーの上に数値を表示
+                if(val > 0) {
+                    ctx.fillStyle = "#333";
+                    ctx.textAlign = "center";
+                    ctx.font = "10px sans-serif";
+                    ctx.fillText(val.toFixed(1), x + barW/2, h - 20 - barH - 5);
+                }
 
-                // 日付ラベル (間引く)
                 if (dates.length < 15 || i % Math.ceil(dates.length/10) === 0) {
                     ctx.fillStyle = "#333";
                     ctx.textAlign = "center";
