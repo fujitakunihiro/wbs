@@ -233,6 +233,34 @@
         canvas.chart { width: 100%; }
         .ana-header { display:flex; gap:15px; align-items:center; background:#f0f0f0; padding:10px; border-radius:4px; margin-bottom:10px; }
         .ana-header label { font-weight:bold; font-size:12px; }
+
+        /* --- 期限アラート用スタイル --- */
+        .status-gray   { color: #aaa !important; }
+        
+        /* 点滅アニメーション定義 */
+        @keyframes blink-alert {
+            0% { color: #dc2626; opacity: 1; }
+            50% { color: #ff0000; opacity: 0.5; }
+            100% { color: #dc2626; opacity: 1; }
+        }
+        
+        /* 期限切れ・当日 (赤点滅 + 薄い赤背景) */
+        .status-red {
+            color: #dc2626 !important;
+            font-weight: bold;
+            background-color: #fff0f0; /* 薄い赤背景 */
+            animation: blink-alert 1.2s infinite ease-in-out; /* 点滅 */
+        }
+        
+        /* 残り3日以内 (濃いオレンジ文字 + 薄い黄色背景) */
+        .status-yellow {
+            color: #b45309 !important; /* 濃いオレンジ */
+            font-weight: bold;
+            background-color: #fffbeb; /* 薄い黄色背景 */
+        }
+        
+        .status-blue   { color: #2f5597 !important; }
+
     </style>
 </head>
 <body>
@@ -619,13 +647,34 @@
 
                 const dateCell = (f) => {
                     const val = t[f];
-                    const isOverdue = f === 'end' && val && val < todayStr && (Number(t.progress)||0) < 100;
-                    const overdueClass = isOverdue ? ' overdue-blink' : '';
+                    
+                    // --- 期限アラートロジック (日数計算修正版) ---
+                    let alertClass = "";
+                    if (f === 'end' && val) {
+                        const isComplete = Number(t.progress) >= 100;
+                        if (isComplete) {
+                            alertClass = "status-gray"; // 完了済み
+                        } else if (val <= todayStr) {
+                            alertClass = "status-red"; // 期限切れ or 当日
+                        } else {
+                            // 日数差計算(UTCベースでシンプルに)
+                            const d1 = new Date(todayStr);
+                            const d2 = new Date(val);
+                            const diffTime = d2 - d1;
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                            
+                            if (diffDays <= 3) {
+                                alertClass = "status-yellow"; // 残り3日以内
+                            } else {
+                                alertClass = "status-blue"; // それ以外
+                            }
+                        }
+                    }
 
                     if (t.isGroup) {
-                        return `<span class="date-display-text${overdueClass}">${formatDateForDisplay(val)}</span>`;
+                        return `<span class="date-display-text ${alertClass}">${formatDateForDisplay(val)}</span>`;
                     } else {
-                        return `<input type="text" class="date-input${overdueClass}" value="${formatDateForDisplay(val)}" onfocus="(this.type='date')" onblur="(this.type='text'); this.value='${formatDateForDisplay(val)}'" onchange="upd(${t.id},'${f}',this.value)">`;
+                        return `<input type="text" class="date-input ${alertClass}" value="${formatDateForDisplay(val)}" onfocus="(this.type='date')" onblur="(this.type='text'); this.value='${formatDateForDisplay(val)}'" onchange="upd(${t.id},'${f}',this.value)">`;
                     }
                 };
 
