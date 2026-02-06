@@ -16,7 +16,7 @@
             --today-line: #ff0000;  
             --row-h: 34px;
             --day-w: 55px; 
-            --wbs-w: 1135px; 
+            --wbs-w: 1200px; 
             
             /* ヒートマップ用色定義 */
             --overload-bg: #ffdddd; 
@@ -120,7 +120,7 @@
         .col-h { width: 75px; justify-content: center; padding-right: 2px; }
         .col-ratio { width: 55px; justify-content: center; font-size: 11px; }
         .col-progress { width: 75px; justify-content: center; }
-        .col-op { width: 155px; justify-content: center; border-right: none !important; gap: 4px; padding: 0 2px; }
+        .col-op { width: 220px; justify-content: flex-start; border-right: none !important; gap: 4px; padding: 0 8px; }
 
         .day-cell { width: var(--day-w); justify-content: center; padding: 0 !important; position: relative; } 
         .is-today-h { background: var(--today-bg) !important; color: #d97706 !important; font-weight: bold; border-bottom: 1px solid #888 !important; }
@@ -164,6 +164,10 @@
         .icon-timer.stop svg { fill: #dc2626; }
         .icon-memo.has-content { border-color: #2f5597; background: #eaf4ff; }
         .icon-memo.has-content svg { fill: #2f5597; }
+        .icon-shift-left { border-color: #06b6d4; background: #cffafe; font-size: 16px; color: #0891b2; padding: 0 6px; font-weight: 600; }
+        .icon-shift-left:hover { background: #a5f3fc; border-color: #0891b2; }
+        .icon-shift-right { border-color: #06b6d4; background: #cffafe; font-size: 16px; color: #0891b2; padding: 0 6px; font-weight: 600; }
+        .icon-shift-right:hover { background: #a5f3fc; border-color: #0891b2; }
 
         .tracking-active { background: #fff1f2 !important; }
 
@@ -492,6 +496,8 @@
         const ICON_STOP = `<svg viewBox="0 0 24 24"><path d="M18,18H6V6H18V18Z"/></svg>`;
         const ICON_MEMO = `<svg viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M13,9V3.5L18.5,9H13Z"/></svg>`;
         const ICON_COPY = `<svg viewBox="0 0 24 24"><path d="M16,1H4C2.9,1,2,1.9,2,3V17H4V3H16V1M19,5H8C6.9,5,6,5.9,6,7V21C6,22.1,6.9,23,8,23H19C20.1,23,21,22.1,21,21V7C21,5.9,20.1,5,19,5M19,21H8V7H19V21Z"/></svg>`;
+        const ICON_SHIFT_LEFT = `⏪`;
+        const ICON_SHIFT_RIGHT = `⏩`;
 
         // --- 祝日計算ロジック (簡易版) ---
         function getHolidayName(dateStr) {
@@ -714,6 +720,7 @@
                         <div class="icon-btn icon-memo ${t.memo?'has-content':''}" onclick="openMemo(${t.id})" title="メモを開く">${ICON_MEMO}</div>
                         <div class="icon-btn" onclick="copyTask(${t.id})" title="タスクを複製">${ICON_COPY}</div>
                         ${!t.isGroup ? (isTracking ? `<div class="icon-btn icon-timer stop" onclick="stopTracking()" title="計測を停止して工数を入力">${ICON_STOP}</div>` : `<div class="icon-btn icon-timer start" onclick="startTracking(${t.id})" title="計測を開始">${ICON_START}</div>`) : ''}
+                        ${!t.isGroup ? `<div class="icon-btn icon-shift-left" onclick="shiftTaskDays(${t.id}, -1)" title="開始日・期限を1営業日前へ">${ICON_SHIFT_LEFT}</div><div class="icon-btn icon-shift-right" onclick="shiftTaskDays(${t.id}, 1)" title="開始日・期限を1営業日後へ">${ICON_SHIFT_RIGHT}</div>` : ''}
                         <div class="icon-btn icon-delete" onclick="delT(${t.id})" title="削除">${ICON_DELETE}</div>
                     </div>
                 `;
@@ -870,6 +877,20 @@
             document.getElementById('shift-modal').style.display = 'none';
             render();
             alert(`${count}件のタスクを営業日ベースで ${days}日 シフトしました。`);
+        }
+
+        // --- 個別タスク用シフト機能 ---
+        function shiftTaskDays(id, businessDays) {
+            saveState();
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            
+            if (t.start) t.start = addBusinessDays(t.start, businessDays);
+            if (t.end) t.end = addBusinessDays(t.end, businessDays);
+            
+            const directionText = businessDays > 0 ? '後' : '前';
+            const daysText = Math.abs(businessDays) === 1 ? '1営業日' : `${Math.abs(businessDays)}営業日`;
+            render();
         }
 
         // --- メモ ---
