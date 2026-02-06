@@ -101,14 +101,10 @@
             background: var(--header-bg); 
             box-shadow: 0 1px 0 #888; 
         }
-
-        .milestone-header {
-            position: sticky;
-            top: var(--row-h);
-            z-index: 39;
-            background: #e0f2fe !important;
-            border-top: 2px solid #0284c7 !important;
-            border-bottom: 2px solid #0284c7 !important;
+        .header .cell { 
+            background: var(--header-bg); 
+            justify-content: center; 
+            border-bottom: 1px solid #888;
         }
 
         .header .col-owner, 
@@ -133,8 +129,8 @@
         .group-row .cell { background: var(--excel-group-bg) !important; font-weight: bold; }
         .in-range { background: var(--range-blue) !important; }
         
-        .sat { color: #007bff; }
-        .sun { color: #dc3545; }
+        .sat { color: #007bff; background-color: #e3f2fd; }
+        .sun { color: #dc3545; background-color: var(--holiday-col); }
         .holiday { color: var(--holiday-text); background-color: var(--holiday-col); }
 
         .today-line {
@@ -505,7 +501,7 @@
 
     <script>
         // --- 初期設定・データ管理 ---
-        function getStorageKey() { return `workload-mgmt-evo-v5-final`; }
+        function getStorageKey() { return `workload-mgmt-evo-v6-final`; }
         
         let tasks = JSON.parse(localStorage.getItem(getStorageKey())) || [
             { id: 1, title: 'プロジェクト開始', owner: '', start: getLocalDateStr(), end: getLocalDateStr(), est: 0, progress: 0, isGroup: true, hours: {}, memo: "" }
@@ -800,9 +796,14 @@
                 mHeaderWbs.style.borderTop = '2px solid #0284c7';
                 mHeaderWbs.style.borderBottom = '2px solid #0284c7';
                 mHeaderWbs.style.minHeight = '28px';
+                mHeaderWbs.style.position = 'sticky';
+                // 左側はスクロール領域内でのトップ張り付きとするため 0 に修正
+                mHeaderWbs.style.top = '0';
+                mHeaderWbs.style.zIndex = '38'; 
+                
                 mHeaderWbs.innerHTML = `
                     <div class="cell col-no"></div>
-                    <div class="cell col-title" style="color: #0284c7; font-weight: bold; font-size: 11px;">📅 マイルストーン</div>
+                    <div class="cell col-title" style="color: #0284c7; font-weight: bold; font-size: 11px; padding-left: 20px; display:flex; align-items:center;">📅 マイルストーン</div>
                     <div class="cell col-owner"></div>
                     <div class="cell col-date"></div>
                     <div class="cell col-date"></div>
@@ -813,6 +814,7 @@
                     <div class="cell col-progress"></div>
                     <div class="cell col-op" style="border-right: 2px solid #0284c7 !important;"></div>
                 `;
+                // 先頭に挿入
                 if (wbsBody.firstChild) {
                     wbsBody.insertBefore(mHeaderWbs, wbsBody.firstChild);
                 } else {
@@ -826,23 +828,30 @@
                 mHeaderGantt.style.borderTop = '2px solid #0284c7';
                 mHeaderGantt.style.borderBottom = '2px solid #0284c7';
                 mHeaderGantt.style.minHeight = '28px';
+                mHeaderGantt.style.position = 'sticky';
+                mHeaderGantt.style.top = '34px'; // ヘッダーの高さ分
+                mHeaderGantt.style.zIndex = '38'; // ヘッダー(40)より下
                 
                 dateList.forEach(d => {
-                    const c = document.createElement('div');
-                    c.className = `cell day-cell ${d.w===6?'sat':''} ${d.w===0?'sun holiday':''} ${d.isToday?'is-today-col':''}`;
-                    
-                    // その日付に該当するマイルストーンを表示
                     const dayMilestones = milestones.filter(m => m.date === d.str);
+                    const c = document.createElement('div');
+                    
+                    const isToday = dayMilestones.length === 0 && d.isToday ? 'is-today-col' : '';
+                    c.className = `cell day-cell ${d.w===6?'sat':''} ${d.w===0?'sun holiday':''} ${isToday}`;
+                    c.style.borderLeft = 'none'; 
+                    
                     if (dayMilestones.length > 0) {
                         const ml = dayMilestones[0];
-                        c.style.background = '#0284c7';
-                        c.style.color = '#fff';
+                        // 背景色ではなく、マークの色で視認性を確保
+                        c.style.background = 'rgba(2, 132, 199, 0.1)'; // 薄い水色背景
+                        c.style.color = '#f59e0b'; // 濃いオレンジ色（Amber-500）
                         c.style.fontWeight = 'bold';
-                        c.style.fontSize = '14px';
-                        c.innerText = ml.completed ? '✓' : '◆';
+                        c.style.fontSize = '16px';
+                        c.style.textShadow = '0 1px 1px rgba(0,0,0,0.1)';
+                        c.innerText = ml.completed ? '✅' : '🔶';
                         c.title = dayMilestones.map(x => x.name).join(' / ');
+                        c.style.cursor = 'help';
                     } else if (d.w === 0 || getHolidayName(d.str)) {
-                        // 祝日の場合は赤くする
                         c.style.background = '#ffebec';
                         c.style.color = '#dc3545';
                     }
