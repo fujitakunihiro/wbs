@@ -403,8 +403,8 @@
         <div class="modal-content" style="width: 600px;">
             <h3>マイルストーン管理</h3>
             <div style="margin-bottom: 15px;">
-                <input type="text" id="milestone-name" placeholder="マイルストーン名" style="border: 1px solid #ccc; padding: 6px; border-radius: 3px; width: 300px; margin-right: 10px;">
-                <input type="date" id="milestone-date" style="border: 1px solid #ccc; padding: 6px; border-radius: 3px; margin-right: 10px;">
+                <input type="text" id="milestone-name" placeholder="マイルストーン名" style="border: 1px solid #ccc; padding: 6px; border-radius: 1px; width: 300px; margin-right: 10px;">
+                <input type="date" id="milestone-date" style="border: 1px solid #ccc; padding: 6px; border-radius: 1px; margin-right: 10px;">
                 <button class="primary" onclick="saveMilestone()">追加</button>
             </div>
             <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
@@ -667,8 +667,7 @@
             const allDates = tasks.flatMap(t => [new Date(t.start), new Date(t.end)]);
             let minD = new Date(Math.min(...allDates, todayObj));
             minD.setDate(minD.getDate() - 5);
-            let maxD = new Date(Math.max(...allDates, todayObj));
-            maxD.setDate(maxD.getDate() + 25);
+            let maxD = new Date(todayObj.getFullYear(), todayObj.getMonth() + 2, 3); // 3月3日まで確実に含む
 
             const dateList = [];
             for (let d = new Date(minD); d <= maxD; d.setDate(d.getDate() + 1)) {
@@ -793,8 +792,8 @@
                 const mHeaderWbs = document.createElement('div');
                 mHeaderWbs.className = 'row';
                 mHeaderWbs.style.background = '#e0f2fe';
-                mHeaderWbs.style.borderTop = '2px solid #0284c7';
-                mHeaderWbs.style.borderBottom = '2px solid #0284c7';
+                mHeaderWbs.style.borderTop = '1px solid #0284c7';
+                mHeaderWbs.style.borderBottom = '1px solid #0284c7';
                 mHeaderWbs.style.minHeight = '28px';
                 mHeaderWbs.style.position = 'sticky';
                 // 左側はスクロール領域内でのトップ張り付きとするため 0 に修正
@@ -825,12 +824,13 @@
                 const mHeaderGantt = document.createElement('div');
                 mHeaderGantt.className = 'row';
                 mHeaderGantt.style.background = '#e0f2fe';
-                mHeaderGantt.style.borderTop = '2px solid #0284c7';
-                mHeaderGantt.style.borderBottom = '2px solid #0284c7';
+                mHeaderGantt.style.borderTop = '1px solid #0284c7';
+                mHeaderGantt.style.borderBottom = '3px solid #0284c7';
                 mHeaderGantt.style.minHeight = '28px';
                 mHeaderGantt.style.position = 'sticky';
                 mHeaderGantt.style.top = '34px'; // ヘッダーの高さ分
                 mHeaderGantt.style.zIndex = '38'; // ヘッダー(40)より下
+                mHeaderGantt.style.width = '100%';
                 
                 dateList.forEach(d => {
                     const dayMilestones = milestones.filter(m => m.date === d.str);
@@ -920,14 +920,44 @@
             }
         }
 
+        function updateMilestoneName(id, newName) {
+            if (!newName.trim()) {
+                alert('マイルストーン名を入力してください');
+                return;
+            }
+            saveState();
+            const m = milestones.find(x => x.id === id);
+            if (m) {
+                m.name = newName;
+                localStorage.setItem(getStorageKey() + '-milestones', JSON.stringify(milestones));
+                renderMilestoneList();
+                render();
+            }
+        }
+
+        function updateMilestoneDate(id, newDate) {
+            if (!newDate) {
+                alert('日付を選択してください');
+                return;
+            }
+            saveState();
+            const m = milestones.find(x => x.id === id);
+            if (m) {
+                m.date = newDate;
+                localStorage.setItem(getStorageKey() + '-milestones', JSON.stringify(milestones));
+                renderMilestoneList();
+                render();
+            }
+        }
+
         function renderMilestoneList() {
             const tbody = document.getElementById('milestone-list');
             tbody.innerHTML = '';
             milestones.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(m => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td style="border: 1px solid #ccc; padding: 6px;">${m.name}</td>
-                    <td style="border: 1px solid #ccc; padding: 6px; text-align: center;">${m.date}</td>
+                    <td style="border: 1px solid #ccc; padding: 6px;"><input type="text" value="${m.name}" onchange="updateMilestoneName(${m.id}, this.value)" style="padding: 2px; border: 1px solid #999; border-radius: 3px; width: 90%;"></td>
+                    <td style="border: 1px solid #ccc; padding: 6px; text-align: center;"><input type="date" value="${m.date}" onchange="updateMilestoneDate(${m.id}, this.value)" style="padding: 2px; border: 1px solid #999; border-radius: 3px;"></td>
                     <td style="border: 1px solid #ccc; padding: 6px; text-align: center;">
                         <input type="checkbox" ${m.completed ? 'checked' : ''} onchange="toggleMilestoneComplete(${m.id})">
                     </td>
