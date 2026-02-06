@@ -841,6 +841,10 @@
                         c.style.fontSize = '14px';
                         c.innerText = ml.completed ? '✓' : '◆';
                         c.title = dayMilestones.map(x => x.name).join(' / ');
+                    } else if (d.w === 0 || getHolidayName(d.str)) {
+                        // 祝日の場合は赤くする
+                        c.style.background = '#ffebec';
+                        c.style.color = '#dc3545';
                     }
                     mHeaderGantt.appendChild(c);
                 });
