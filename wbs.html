@@ -16,11 +16,15 @@
             --today-line: #ff0000;  
             --row-h: 34px;
             --day-w: 55px; 
-            --wbs-w: 1120px; 
+            --wbs-w: 1135px; 
             
             /* ヒートマップ用色定義 */
             --overload-bg: #ffdddd; 
             --overload-col: #cc0000; 
+            
+            /* 祝日用 */
+            --holiday-col: #ffebec;
+            --holiday-text: #dc3545;
         }
 
         * { box-sizing: border-box; }
@@ -29,6 +33,7 @@
         .controls { margin-bottom: 10px; display: flex; gap: 8px; align-items: center; white-space: nowrap; flex-wrap: nowrap; }
         button { padding: 5px 15px; cursor: pointer; border: 1px solid #999; background: #fff; border-radius: 2px; font-size: 12px; }
         button.primary { background: var(--excel-blue); color: white; border: none; }
+        button:hover { background-color: #f0f0f0; }
 
         .usage-guide {
             margin-left: auto;
@@ -106,6 +111,7 @@
         .header .col-date,
         .header .col-progress { overflow: visible !important; position: relative; } 
 
+        /* 列幅の定義 */
         .col-no { width: 45px; justify-content: center !important; background: #f0f0f0 !important; font-weight: bold; }
         .col-title { width: 220px; }
         .col-owner { width: 90px; } 
@@ -114,19 +120,18 @@
         .col-h { width: 75px; justify-content: center; padding-right: 2px; }
         .col-ratio { width: 55px; justify-content: center; font-size: 11px; }
         .col-progress { width: 75px; justify-content: center; }
-        .col-op { width: 140px; justify-content: center; border-right: none !important; gap: 6px; padding: 0 2px; }
+        .col-op { width: 155px; justify-content: center; border-right: none !important; gap: 4px; padding: 0 2px; }
 
-        .progress-input-wrapper { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
-        .progress-input-wrapper input { width: 100%; text-align: center; }
-
-        .day-cell { width: var(--day-w); justify-content: center; padding: 0 !important; } 
+        .day-cell { width: var(--day-w); justify-content: center; padding: 0 !important; position: relative; } 
         .is-today-h { background: var(--today-bg) !important; color: #d97706 !important; font-weight: bold; border-bottom: 1px solid #888 !important; }
         .is-today-col { background-color: var(--today-col-bg) !important; }
 
         .group-row .cell { background: var(--excel-group-bg) !important; font-weight: bold; }
         .in-range { background: var(--range-blue) !important; }
+        
         .sat { color: #007bff; }
         .sun { color: #dc3545; }
+        .holiday { color: var(--holiday-text); background-color: var(--holiday-col); }
 
         .today-line {
             position: absolute; top: 0; bottom: 0; 
@@ -143,7 +148,7 @@
         .date-display-text { font-size: 12px; padding-left: 2px; color: #333; cursor: default; white-space: nowrap; }
         .date-input { cursor: pointer; text-align: left; width: 100%; }
         
-        .hour-input { height: 100%; font-size: 11px; padding-right: 2px !important; width: 100%; color: inherit; cursor: pointer; }
+        .hour-input { height: 100%; font-size: 11px; padding-right: 2px !important; width: 100%; color: inherit; cursor: pointer; z-index: 2; position: relative; }
 
         .icon-btn {
             width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
@@ -151,7 +156,6 @@
         }
         .icon-btn svg { width: 16px; height: 16px; fill: #666; }
         .icon-btn:hover { background: #f0f0f0; border-color: #888; }
-        .icon-group:hover { background: #e2e8f0; }
         .icon-delete:hover { background: #fee2e2; }
         .icon-delete:hover svg { fill: #dc2626; }
         .icon-timer.start { border-color: #16a34a; }
@@ -170,18 +174,30 @@
         }
         .icon-ref:hover { background: #e0f2fe; border-color: var(--work-blue); color: var(--excel-blue); }
 
-        .filter-icon { cursor: pointer; margin-left: 2px; color: #666; font-size: 10px; border: 1px solid #999; border-radius: 3px; padding: 1px 2px; background: #eee; flex-shrink: 0; display: inline-block; line-height: 1; }
+        .filter-icon { 
+            cursor: pointer; margin-left: 2px; color: #666; font-size: 10px; 
+            border: 1px solid #999; border-radius: 3px; padding: 1px 2px; background: #eee; 
+            flex-shrink: 0; display: inline-block; line-height: 1; 
+        }
         .filter-icon:hover { background: #ddd; }
         .filter-active { background: var(--excel-blue); color: #fff; border-color: var(--excel-blue); }
-        .filter-menu { position: absolute; top: 100%; left: 0; width: max-content; min-width: 150px; background: #fff; border: 1px solid #999; box-shadow: 2px 2px 10px rgba(0,0,0,0.2); z-index: 1000; display: none; flex-direction: column; padding: 5px; text-align: left; font-weight: normal; max-height: 300px; overflow-y: auto; margin-top: 1px; white-space: nowrap; }
+        
+        .filter-menu { 
+            position: absolute; top: 100%; left: 0; width: max-content; min-width: 150px; 
+            background: #fff; border: 1px solid #999; box-shadow: 2px 2px 10px rgba(0,0,0,0.2); 
+            z-index: 1000; display: none; flex-direction: column; padding: 5px; 
+            text-align: left; font-weight: normal; max-height: 300px; overflow-y: auto; 
+            margin-top: 1px; white-space: nowrap; 
+        }
         .col-progress .filter-menu { left: auto; right: 0; } 
         .filter-menu label { display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 4px 8px; cursor: pointer; width: 100%; }
         .filter-menu label:hover { background: #f0f0f0; }
         .filter-menu input[type="checkbox"] { margin: 0; width: auto; cursor: pointer; }
-        .date-filter-container { padding: 8px; }
-        .date-filter-input { width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 2px; box-sizing: border-box; }
         .filter-actions { border-top: 1px solid #ddd; padding-top: 5px; margin-top: 5px; display: flex; justify-content: space-between; }
         .filter-actions button { padding: 3px 8px; font-size: 11px; }
+
+        .date-filter-container { padding: 8px; }
+        .date-filter-input { width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 2px; box-sizing: border-box; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
         #memo-modal { z-index: 2000 !important; }
@@ -190,6 +206,7 @@
         .modal-content textarea { width: 100%; height: 350px; margin-bottom: 20px; padding: 12px; font-family: inherit; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; line-height: 1.6; }
         .modal-btns { display: flex; justify-content: flex-end; gap: 12px; }
 
+        /* 実績参照用スタイル */
         .ref-result-area { height: 180px; overflow-y: auto; border: 1px solid #eee; margin-bottom: 10px; }
         .ref-table { width: 100%; border-collapse: collapse; font-size: 12px; }
         .ref-table th { background: #f2f2f2; position: sticky; top: 0; padding: 6px; text-align: left; border-bottom: 1px solid #ccc; }
@@ -217,8 +234,12 @@
         .ref-table thead tr th:first-child { width: 25px; } 
 
         .over-limit { background-color: var(--overload-bg) !important; color: var(--overload-col) !important; font-weight: bold; }
-        .over-limit input { color: var(--overload-col) !important; font-weight: bold; }
         
+        /* 期限アラート用 */
+        .status-red { color: #dc2626 !important; font-weight: bold; background-color: #fff0f0; animation: blink-alert 1.2s infinite ease-in-out; }
+        .status-yellow { color: #b45309 !important; font-weight: bold; background-color: #fffbeb; }
+        @keyframes blink-alert { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
         .report-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
         .report-table th, .report-table td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
         .report-table th { background: #f2f2f2; font-weight: bold; text-align: center; }
@@ -226,40 +247,10 @@
         .report-over-limit { background-color: var(--overload-bg); color: var(--overload-col); font-weight: bold; }
         .report-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
 
-        /* 分析ダッシュボード用 */
-        .chart-container { display: flex; flex-direction: column; gap: 20px; padding: 10px; }
-        .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; width: 100%; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .chart-box h4 { margin: 0 0 10px 0; font-size: 14px; color: #555; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        canvas.chart { width: 100%; }
-        .ana-header { display:flex; gap:15px; align-items:center; background:#f0f0f0; padding:10px; border-radius:4px; margin-bottom:10px; }
-        .ana-header label { font-weight:bold; font-size:12px; }
-
-        /* --- 期限アラート用スタイル --- */
-        .status-gray   { color: #aaa !important; }
-        
-        /* 点滅アニメーション定義 */
-        @keyframes blink-alert {
-            0% { color: #dc2626; opacity: 1; }
-            50% { color: #ff0000; opacity: 0.5; }
-            100% { color: #dc2626; opacity: 1; }
-        }
-        
-        /* 期限切れ・当日 (赤点滅 + 薄い赤背景) */
-        .status-red {
-            color: #dc2626 !important;
-            font-weight: bold;
-            background-color: #fff0f0; /* 薄い赤背景 */
-            animation: blink-alert 1.2s infinite ease-in-out; /* 点滅 */
-        }
-        
-        /* 残り3日以内 (濃いオレンジ文字 + 薄い黄色背景) */
-        .status-yellow {
-            color: #b45309 !important; /* 濃いオレンジ */
-            font-weight: bold;
-            background-color: #fffbeb; /* 薄い黄色背景 */
-        }
-        
-        .status-blue   { color: #2f5597 !important; }
+        /* シフト機能用 */
+        .settings-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; }
+        .settings-row label { width: 120px; text-align: right; font-weight: bold; }
+        .settings-row input, .settings-row select { border: 1px solid #ccc; padding: 4px; border-radius: 3px; width: 200px; background: #fff; }
 
     </style>
 </head>
@@ -268,6 +259,9 @@
     <div class="controls">
         <h2 style="margin: 0 10px 0 0; font-size: 14px;">工数管理</h2>
         <button class="primary" onclick="addTask()">＋ タスク追加</button>
+        <button onclick="undo()" id="btn-undo" disabled>🔙 元に戻す</button>
+        <button onclick="openShiftModal()">⏩ シフト</button>
+        <div style="width: 1px; height: 20px; background: #ccc; margin: 0 5px;"></div>
         <button onclick="downloadJSON()">📥 保存</button>
         <button onclick="document.getElementById('fileIn').click()">📤 読込</button>
         <button onclick="downloadCSV()">📊 CSV出力</button>
@@ -323,6 +317,7 @@
         </div>
     </div>
 
+    <!-- メモ用モーダル -->
     <div id="memo-modal" class="modal-overlay">
         <div class="modal-content" style="width: 650px;">
             <h3 id="memo-title">メモ</h3>
@@ -388,7 +383,6 @@
                     </div>
                     <button class="primary" onclick="applyRefAdjusted()">決定</button>
                 </div>
-                <!-- 選択位置の詳細情報 -->
                 <div id="dist-info">↑ スライダーを動かすと、その値に近い過去実績が表示されます</div>
             </div>
 
@@ -398,7 +392,55 @@
         </div>
     </div>
 
-    <!-- 日報集計用モーダル -->
+    <!-- シフトモーダル -->
+    <div id="shift-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 450px;">
+            <h3>スケジュール一括シフト (営業日ベース)</h3>
+            <p style="margin-bottom:15px; font-size:11px; color:#555;">選択した親タスク配下の「未完了タスク」の日付を、<br>土日祝日をスキップしてシフトします。</p>
+            <div class="settings-row">
+                <label>親タスク(対象):</label>
+                <select id="shift-target-group"></select>
+            </div>
+            <div class="settings-row">
+                <label>シフト日数:</label>
+                <input type="number" id="shift-days" value="0" placeholder="例: 7 (1週間) または -1">
+            </div>
+            <div class="modal-btns">
+                <button onclick="document.getElementById('shift-modal').style.display='none'">キャンセル</button>
+                <button class="primary" onclick="applyShift()">実行</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分析ダッシュボード -->
+    <div id="analyze-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 950px; height: 95%; display:flex; flex-direction:column; overflow:hidden;">
+            <h3>プロジェクト分析ダッシュボード</h3>
+            <div style="display:flex; gap:15px; align-items:center; background:#f0f0f0; padding:10px; margin-bottom:10px;">
+                <label>期間: <input type="date" id="ana-start" onchange="renderCharts()"> ～ <input type="date" id="ana-end" onchange="renderCharts()"></label>
+                <label>分析対象: <select id="ana-target" onchange="renderCharts()"><option value="">(全プロジェクト)</option></select></label>
+            </div>
+            <div style="flex-grow: 1; overflow-y: auto; padding: 10px; background:#f5f5f5;">
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div style="background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                        <h4>予実比較 (h)</h4>
+                        <div id="chart-compare-container" style="overflow-x:auto;"><canvas id="chart-bar-compare"></canvas></div>
+                    </div>
+                    <div style="background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                        <h4>担当者別 内訳 (h)</h4>
+                        <canvas id="chart-pie-owner" style="height: 250px; width:100%;"></canvas>
+                    </div>
+                    <div style="background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                        <h4>日別推移 (h)</h4>
+                        <canvas id="chart-bar-daily" style="height: 300px; width:100%;"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-btns"><button onclick="document.getElementById('analyze-modal').style.display='none'">閉じる</button></div>
+        </div>
+    </div>
+    
+    <!-- 日報用モーダル -->
     <div id="report-modal" class="modal-overlay">
         <div class="modal-content" style="width: 800px; height: 80%; display:flex; flex-direction:column;">
             <h3>担当者別・日次実績集計</h3>
@@ -425,100 +467,115 @@
         </div>
     </div>
 
-    <!-- 分析ダッシュボード用モーダル -->
-    <div id="analyze-modal" class="modal-overlay">
-        <div class="modal-content" style="width: 950px; height: 95%; display:flex; flex-direction:column; overflow:hidden;">
-            <h3>プロジェクト分析ダッシュボード</h3>
-            <div class="ana-header">
-                <label>期間: <input type="date" id="ana-start" onchange="renderCharts()"> ～ <input type="date" id="ana-end" onchange="renderCharts()"></label>
-                <label>分析対象: 
-                    <select id="ana-target" onchange="renderCharts()" style="padding:4px;">
-                        <option value="">(全プロジェクト・親タスク比較)</option>
-                    </select>
-                </label>
-            </div>
-            <div style="flex-grow: 1; overflow-y: auto; padding: 10px; background:#f5f5f5;">
-                <div class="chart-container">
-                    <!-- 予実比較 (横棒グラフ) -->
-                    <div class="chart-box">
-                        <h4>予実比較 (見積 vs 実績)</h4>
-                        <div id="chart-compare-container" style="overflow-x:auto;">
-                            <canvas id="chart-bar-compare"></canvas>
-                        </div>
-                    </div>
-                    <!-- タスク 要素割合 (円グラフ) -->
-                    <div class="chart-box">
-                        <h4>タスク 要素割合</h4>
-                        <canvas id="chart-pie-subtask" class="chart" style="height: 250px;"></canvas>
-                    </div>
-                    <!-- 担当者別 工数内訳 (円グラフ) -->
-                    <div class="chart-box">
-                        <h4>担当者別 工数割合</h4>
-                        <canvas id="chart-pie-owner" class="chart" style="height: 250px;"></canvas>
-                    </div>
-                    <!-- 日別工数推移 (担当者別・積み上げ) -->
-                    <div class="chart-box">
-                        <h4>日別工数推移</h4>
-                        <canvas id="chart-bar-daily" class="chart" style="height: 300px;"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-btns" style="margin-top:15px;">
-                <button onclick="document.getElementById('analyze-modal').style.display='none'">閉じる</button>
-            </div>
-        </div>
-    </div>
-
     <script>
-        function getStorageKey() {
-            const path = window.location.pathname;
-            const fileName = path.split('/').pop().replace('.html', '') || 'default';
-            return `workload-mgmt-v35-final-owner` + fileName; 
-        }
+        // --- 初期設定・データ管理 ---
+        function getStorageKey() { return `workload-mgmt-evo-v5-final`; }
         
         let tasks = JSON.parse(localStorage.getItem(getStorageKey())) || [
-            { id: 1, title: 'プロジェクト管理', owner: '', start: getLocalDateStr(), end: getLocalDateStr(), est: 0, progress: 0, isGroup: true, hours: {}, memo: "" }
+            { id: 1, title: 'プロジェクト開始', owner: '', start: getLocalDateStr(), end: getLocalDateStr(), est: 0, progress: 0, isGroup: true, hours: {}, memo: "" }
         ];
+        
+        // Undo履歴
+        const historyStack = [];
+        const MAX_HISTORY = 20;
 
-        let trackingId = null;
-        let trackingStartTime = null;
-        let timerInterval = null;
-        let dragIdx = null;
-        let currentMemoId = null;
-        let currentRefTaskId = null;
-        let currentRefResults = [];
-        let visibleOwners = null; 
-        let visibleProgress = null;
-        let visibleStartDate = null; 
+        let trackingId = null, trackingStartTime = null, timerInterval = null;
+        let dragIdx = null, currentMemoId = null, currentRefTaskId = null, currentRefResults = [];
+        let visibleOwners = null, visibleProgress = null, visibleStartDate = null; 
         let dailyLoadMap = {};
         const OVERLOAD_LIMIT = 8; 
 
-        const ganttContainer = document.getElementById('gantt-container');
-        const wbsBodyContainer = document.getElementById('wbs-body-container');
-        ganttContainer.addEventListener('scroll', () => { wbsBodyContainer.scrollTop = ganttContainer.scrollTop; });
-
-        document.addEventListener('click', function(e) {
-            const menu = document.getElementById('filter-menu');
-            const btn = document.getElementById('filter-btn');
-            if (menu.style.display === 'flex' && e.target !== btn && !menu.contains(e.target)) { menu.style.display = 'none'; }
-            const pMenu = document.getElementById('prog-filter-menu');
-            const pBtn = document.getElementById('prog-filter-btn');
-            if (pMenu.style.display === 'flex' && e.target !== pBtn && !pMenu.contains(e.target)) { pMenu.style.display = 'none'; }
-            const dMenu = document.getElementById('date-filter-menu');
-            const dBtn = document.getElementById('date-filter-btn');
-            if (dMenu.style.display === 'flex' && e.target !== dBtn && !dMenu.contains(e.target)) { dMenu.style.display = 'none'; }
-        });
-
-        // (中略: アイコンSVG等は変更なし)
+        // アイコン定義
         const ICON_GROUP = `<svg viewBox="0 0 24 24"><path d="M20,18H4V8H20M20,6H12L10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6Z"/></svg>`;
         const ICON_DELETE = `<svg viewBox="0 0 24 24"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19V4M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`;
         const ICON_START = `<svg viewBox="0 0 24 24"><path d="M8,5.14V19.14L19,12.14L8,5.14Z"/></svg>`;
         const ICON_STOP = `<svg viewBox="0 0 24 24"><path d="M18,18H6V6H18V18Z"/></svg>`;
         const ICON_MEMO = `<svg viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M13,9V3.5L18.5,9H13Z"/></svg>`;
+        const ICON_COPY = `<svg viewBox="0 0 24 24"><path d="M16,1H4C2.9,1,2,1.9,2,3V17H4V3H16V1M19,5H8C6.9,5,6,5.9,6,7V21C6,22.1,6.9,23,8,23H19C20.1,23,21,22.1,21,21V7C21,5.9,20.1,5,19,5M19,21H8V7H19V21Z"/></svg>`;
+
+        // --- 祝日計算ロジック (簡易版) ---
+        function getHolidayName(dateStr) {
+            const d = new Date(dateStr);
+            const y = d.getFullYear();
+            const m = d.getMonth() + 1;
+            const day = d.getDate();
+            const w = d.getDay();
+            
+            if (m==1 && day==1) return "元日";
+            if (m==2 && day==11) return "建国記念の日";
+            if (m==2 && day==23) return "天皇誕生日";
+            if (m==4 && day==29) return "昭和の日";
+            if (m==5 && day==3) return "憲法記念日";
+            if (m==5 && day==4) return "みどりの日";
+            if (m==5 && day==5) return "こどもの日";
+            if (m==8 && day==11) return "山の日";
+            if (m==11 && day==3) return "文化の日";
+            if (m==11 && day==23) return "勤労感謝の日";
+
+            function isHappyMonday(month, n) { return m === month && w === 1 && Math.ceil(day / 7) === n; }
+            if (isHappyMonday(1, 2)) return "成人の日";
+            if (isHappyMonday(7, 3)) return "海の日";
+            if (isHappyMonday(9, 3)) return "敬老の日";
+            if (isHappyMonday(10, 2)) return "スポーツの日";
+
+            const vernal = Math.floor(20.8431 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+            const autumnal = Math.floor(23.2488 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+            if (m == 3 && day == vernal) return "春分の日";
+            if (m == 9 && day == autumnal) return "秋分の日";
+
+            const prev = new Date(d); prev.setDate(day - 1);
+            if (w === 1 && getHolidayName(prev.toISOString().split('T')[0])) return "振替休日";
+            return null;
+        }
+
+        // 営業日判定 (土日祝はfalse)
+        function isBusinessDay(date) {
+            const d = date.getDay();
+            if (d === 0 || d === 6) return false; // 日・土
+            const dateStr = date.toLocaleDateString('sv-SE');
+            if (getHolidayName(dateStr)) return false; // 祝日
+            return true;
+        }
+
+        // 営業日加算・減算
+        function addBusinessDays(startStr, daysToAdd) {
+            if (!startStr) return "";
+            let date = new Date(startStr);
+            let added = 0;
+            const direction = daysToAdd > 0 ? 1 : -1;
+            const target = Math.abs(daysToAdd);
+
+            while (added < target) {
+                date.setDate(date.getDate() + direction);
+                if (isBusinessDay(date)) {
+                    added++;
+                }
+            }
+            return date.toLocaleDateString('sv-SE');
+        }
 
         function getLocalDateStr() { return new Date().toLocaleDateString('sv-SE'); }
         function formatDateForDisplay(d) { return d ? d.replace(/-/g, '/') : ""; }
 
+        // --- Undo機能 ---
+        function pushHistory() {
+            if (historyStack.length >= MAX_HISTORY) historyStack.shift();
+            historyStack.push(JSON.stringify(tasks));
+            document.getElementById('btn-undo').disabled = false;
+        }
+        function undo() {
+            if (historyStack.length === 0) return;
+            const prev = historyStack.pop();
+            tasks = JSON.parse(prev);
+            render();
+            if (historyStack.length === 0) document.getElementById('btn-undo').disabled = true;
+        }
+        function saveState() {
+            pushHistory();
+            localStorage.setItem(getStorageKey(), JSON.stringify(tasks));
+        }
+
+        // --- メイン描画ロジック ---
         function updateLogic() {
             let major = 0, minor = 0;
             tasks.forEach(t => {
@@ -536,8 +593,8 @@
                         tEst += Number(child.est || 0);
                         tSum += childSum;
                         weightedProg += (Number(child.progress || 0) * Number(child.est || 0));
-                        if (!minS || (child.start && child.start < minS)) minS = child.start;
-                        if (!maxE || (child.end && child.end > maxE)) maxE = child.end;
+                        if (child.start && (!minS || child.start < minS)) minS = child.start;
+                        if (child.end && (!maxE || child.end > maxE)) maxE = child.end;
                     }
                     if (hasChild) {
                         tasks[i].est = tEst;
@@ -561,12 +618,6 @@
             });
         }
 
-        // フィルタ・レンダリング関係 (前回と同じ、担当者列の赤ハイライト削除)
-        // ... (toggleFilterMenu, toggleProgressFilterMenu, toggleDateFilterMenu は省略せず前回のものをそのまま使用)
-        function toggleFilterMenu(e) { e.stopPropagation(); document.getElementById('prog-filter-menu').style.display = 'none'; document.getElementById('date-filter-menu').style.display = 'none'; const menu = document.getElementById('filter-menu'); if (menu.style.display === 'flex') { menu.style.display = 'none'; return; } const owners = new Set(); tasks.forEach(t => owners.add(t.owner || "")); const sortedOwners = Array.from(owners).sort(); menu.innerHTML = ''; const allBtnDiv = document.createElement('div'); allBtnDiv.style.padding = "4px"; allBtnDiv.style.borderBottom = "1px solid #eee"; allBtnDiv.style.marginBottom = "4px"; allBtnDiv.style.display = "flex"; allBtnDiv.style.gap = "10px"; allBtnDiv.style.justifyContent = "center"; const btnAll = document.createElement('button'); btnAll.innerText = "すべて"; btnAll.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true); const btnClear = document.createElement('button'); btnClear.innerText = "解除"; btnClear.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false); allBtnDiv.appendChild(btnAll); allBtnDiv.appendChild(btnClear); menu.appendChild(allBtnDiv); sortedOwners.forEach(owner => { const val = owner === "" ? "(未割当)" : owner; const label = document.createElement('label'); const chk = document.createElement('input'); chk.type = "checkbox"; chk.value = owner; if (visibleOwners === null || visibleOwners.has(owner)) chk.checked = true; const span = document.createElement('span'); span.innerText = val; label.appendChild(chk); label.appendChild(span); menu.appendChild(label); }); const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions'; const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用"; applyBtn.onclick = () => { const checked = menu.querySelectorAll('input[type="checkbox"]:checked'); if (checked.length === sortedOwners.length) { visibleOwners = null; document.getElementById('filter-btn').classList.remove('filter-active'); } else { visibleOwners = new Set(); checked.forEach(c => visibleOwners.add(c.value)); document.getElementById('filter-btn').classList.add('filter-active'); } menu.style.display = 'none'; render(); }; actionDiv.appendChild(applyBtn); menu.appendChild(actionDiv); menu.style.display = 'flex'; }
-        function toggleProgressFilterMenu(e) { e.stopPropagation(); document.getElementById('filter-menu').style.display = 'none'; document.getElementById('date-filter-menu').style.display = 'none'; const menu = document.getElementById('prog-filter-menu'); if (menu.style.display === 'flex') { menu.style.display = 'none'; return; } menu.innerHTML = ''; const options = [ { val: 'incomplete', text: '未完了' }, { val: 'complete', text: '完了 (100%)' } ]; const allBtnDiv = document.createElement('div'); allBtnDiv.style.padding = "4px"; allBtnDiv.style.borderBottom = "1px solid #eee"; allBtnDiv.style.marginBottom = "4px"; allBtnDiv.style.display = "flex"; allBtnDiv.style.gap = "10px"; allBtnDiv.style.justifyContent = "center"; const btnAll = document.createElement('button'); btnAll.innerText = "すべて"; btnAll.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true); const btnClear = document.createElement('button'); btnClear.innerText = "解除"; btnClear.onclick = () => menu.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false); allBtnDiv.appendChild(btnAll); allBtnDiv.appendChild(btnClear); menu.appendChild(allBtnDiv); options.forEach(opt => { const label = document.createElement('label'); const chk = document.createElement('input'); chk.type = "checkbox"; chk.value = opt.val; if (visibleProgress === null || visibleProgress.has(opt.val)) chk.checked = true; const span = document.createElement('span'); span.innerText = opt.text; label.appendChild(chk); label.appendChild(span); menu.appendChild(label); }); const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions'; const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用"; applyBtn.onclick = () => { const checked = menu.querySelectorAll('input[type="checkbox"]:checked'); if (checked.length === options.length) { visibleProgress = null; document.getElementById('prog-filter-btn').classList.remove('filter-active'); } else { visibleProgress = new Set(); checked.forEach(c => visibleProgress.add(c.value)); document.getElementById('prog-filter-btn').classList.add('filter-active'); } menu.style.display = 'none'; render(); }; actionDiv.appendChild(applyBtn); menu.appendChild(actionDiv); menu.style.display = 'flex'; }
-        function toggleDateFilterMenu(e) { e.stopPropagation(); document.getElementById('filter-menu').style.display = 'none'; document.getElementById('prog-filter-menu').style.display = 'none'; const menu = document.getElementById('date-filter-menu'); if (menu.style.display === 'flex') { menu.style.display = 'none'; return; } menu.innerHTML = ''; const divContainer = document.createElement('div'); divContainer.className = 'date-filter-container'; divContainer.innerHTML = '<div style="margin-bottom:4px; font-weight:bold; font-size:11px;">指定日以降を表示:</div>'; const dateInput = document.createElement('input'); dateInput.type = 'date'; dateInput.className = 'date-filter-input'; if (visibleStartDate) dateInput.value = visibleStartDate; divContainer.appendChild(dateInput); menu.appendChild(divContainer); const actionDiv = document.createElement('div'); actionDiv.className = 'filter-actions'; const applyBtn = document.createElement('button'); applyBtn.className = 'primary'; applyBtn.innerText = "適用"; applyBtn.onclick = () => { const val = dateInput.value; if (val) { visibleStartDate = val; document.getElementById('date-filter-btn').classList.add('filter-active'); } else { visibleStartDate = null; document.getElementById('date-filter-btn').classList.remove('filter-active'); } menu.style.display = 'none'; render(); }; const clearBtn = document.createElement('button'); clearBtn.innerText = "解除"; clearBtn.onclick = () => { visibleStartDate = null; document.getElementById('date-filter-btn').classList.remove('filter-active'); menu.style.display = 'none'; render(); }; actionDiv.appendChild(applyBtn); actionDiv.appendChild(clearBtn); menu.appendChild(actionDiv); menu.style.display = 'flex'; }
-
         function render() {
             updateLogic();
             localStorage.setItem(getStorageKey(), JSON.stringify(tasks));
@@ -586,14 +637,18 @@
             const dateList = [];
             for (let d = new Date(minD); d <= maxD; d.setDate(d.getDate() + 1)) {
                 const curStr = d.toLocaleDateString('sv-SE');
-                dateList.push({ str: curStr, label: `${d.getMonth()+1}/${d.getDate()}`, w: d.getDay(), isToday: curStr === todayStr });
+                const holiday = getHolidayName(curStr);
+                dateList.push({ str: curStr, label: `${d.getMonth()+1}/${d.getDate()}`, w: d.getDay(), isToday: curStr === todayStr, holiday: holiday });
             }
 
             dateList.forEach(d => {
+                const isHoliday = d.w === 0 || d.holiday;
+                const classNames = `cell day-cell ${d.w===6?'sat':''} ${isHoliday?'sun holiday':''} ${d.isToday?'is-today-h':''}`;
                 const h = document.createElement('div');
-                h.className = `cell day-cell ${d.w===6?'sat':d.w===0?'sun':''} ${d.isToday?'is-today-h':''}`;
+                h.className = classNames;
                 if(d.isToday) h.id = "today-target";
                 h.innerText = d.label;
+                if(d.holiday) h.title = d.holiday;
                 ganttHead.appendChild(h);
             });
 
@@ -605,98 +660,59 @@
                 ganttBody.appendChild(line);
             }
 
-            const selfMatches = new Array(tasks.length).fill(false);
-            for(let i=0; i<tasks.length; i++) {
-                const t = tasks[i];
+            const visibleIndices = new Set();
+            tasks.forEach((t, i) => {
                 let ownerOk = visibleOwners ? visibleOwners.has(t.owner || "") : true;
                 let progOk = visibleProgress ? visibleProgress.has((Number(t.progress)>=100)?'complete':'incomplete') : true;
                 let dateOk = visibleStartDate ? (!t.start || t.start >= visibleStartDate) : true;
-                selfMatches[i] = ownerOk && progOk && dateOk;
-            }
-
-            const visibleIndices = new Set();
-            for(let i=0; i<tasks.length; i++) {
-                if (!tasks[i].isGroup) {
-                    if (selfMatches[i]) visibleIndices.add(i);
-                } else {
-                    let groupVisible = selfMatches[i];
-                    if (!groupVisible) {
-                        for(let j=i+1; j<tasks.length; j++) {
-                            if (tasks[j].isGroup) break;
-                            if (selfMatches[j]) { groupVisible = true; break; }
-                        }
-                    }
-                    if (groupVisible) visibleIndices.add(i);
-                }
-            }
+                if (t.isGroup) visibleIndices.add(i); 
+                else if (ownerOk && progOk && dateOk) visibleIndices.add(i);
+            });
 
             tasks.forEach((t, idx) => {
-                if (!visibleIndices.has(idx)) return;
-
+                if (!t.isGroup && !visibleIndices.has(idx)) return;
+                
                 const isTracking = trackingId === t.id;
                 const remain = (Number(t.est || 0) - t.computedSum).toFixed(1);
-                const ratio = t.est > 0 ? Math.round((t.computedSum / t.est) * 100) : 0;
-                const hasMemo = t.memo && t.memo.trim().length > 0;
+                
+                const getDateAlert = (f, val) => {
+                    if (f !== 'end' || !val) return "";
+                    if (Number(t.progress) >= 100) return "";
+                    if (val <= todayStr) return "status-red";
+                    const diff = Math.ceil((new Date(val) - new Date(todayStr))/(86400000));
+                    return diff <= 3 ? "status-yellow" : "";
+                };
 
                 const wRow = document.createElement('div');
                 wRow.className = 'row' + (t.isGroup ? ' group-row' : '') + (isTracking ? ' tracking-active' : '');
                 wRow.draggable = true;
                 wRow.ondragstart = () => dragIdx = idx;
                 wRow.ondragover = (e) => e.preventDefault();
-                wRow.ondrop = () => { const move = tasks.splice(dragIdx, 1)[0]; tasks.splice(idx, 0, move); render(); };
-
-                const dateCell = (f) => {
-                    const val = t[f];
-                    
-                    // --- 期限アラートロジック (日数計算修正版) ---
-                    let alertClass = "";
-                    if (f === 'end' && val) {
-                        const isComplete = Number(t.progress) >= 100;
-                        if (isComplete) {
-                            alertClass = "status-gray"; // 完了済み
-                        } else if (val <= todayStr) {
-                            alertClass = "status-red"; // 期限切れ or 当日
-                        } else {
-                            // 日数差計算(UTCベースでシンプルに)
-                            const d1 = new Date(todayStr);
-                            const d2 = new Date(val);
-                            const diffTime = d2 - d1;
-                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-                            
-                            if (diffDays <= 3) {
-                                alertClass = "status-yellow"; // 残り3日以内
-                            } else {
-                                alertClass = "status-blue"; // それ以外
-                            }
-                        }
-                    }
-
-                    if (t.isGroup) {
-                        return `<span class="date-display-text ${alertClass}">${formatDateForDisplay(val)}</span>`;
-                    } else {
-                        return `<input type="text" class="date-input ${alertClass}" value="${formatDateForDisplay(val)}" onfocus="(this.type='date')" onblur="(this.type='text'); this.value='${formatDateForDisplay(val)}'" onchange="upd(${t.id},'${f}',this.value)">`;
-                    }
+                wRow.ondrop = () => { 
+                    saveState();
+                    const move = tasks.splice(dragIdx, 1)[0]; 
+                    tasks.splice(idx, 0, move); 
+                    render(); 
                 };
 
-                const progValue = Number(t.progress || 0);
-                const progressCellContent = t.isGroup 
-                    ? `<span>${progValue}%</span>` 
-                    : `<input type="number" min="0" max="100" value="${progValue}" onfocus="this.value=this.value.replace('%','')" onblur="this.value=this.value+'%'" onchange="upd(${t.id},'progress',this.value)">`;
+                const startDateVal = t.isGroup ? formatDateForDisplay(t.start) : (t.start || "");
+                const endDateVal = t.isGroup ? formatDateForDisplay(t.end) : (t.end || "");
 
                 wRow.innerHTML = `
                     <div class="cell col-no">${t.no}</div>
                     <div class="cell col-title" style="padding-left:${t.isGroup?'4px':'20px'}"><input value="${t.title}" onchange="upd(${t.id},'title',this.value)"></div>
                     <div class="cell col-owner"><input value="${t.owner}" onchange="upd(${t.id},'owner',this.value)" ${t.isGroup?'readonly':''}></div>
-                    <div class="cell col-date">${dateCell('start')}</div>
-                    <div class="cell col-date">${dateCell('end')}</div>
-                    <div class="cell col-h"><input type="number" min="0" step="0.1" value="${Number(t.est || 0).toFixed(1)}" onchange="upd(${t.id},'est',this.value)" ${t.isGroup?'readonly':''}>${!t.isGroup ? `<div class="icon-ref" onclick="openRef(${t.id})" title="実績参照">🔍</div>` : ''}</div>
+                    <div class="cell col-date"><input type="${t.isGroup?'text':'date'}" class="date-input" value="${startDateVal}" onchange="upd(${t.id},'start',this.value)" ${t.isGroup?'readonly':''}></div>
+                    <div class="cell col-date"><input type="${t.isGroup?'text':'date'}" class="date-input ${getDateAlert('end',t.end)}" value="${endDateVal}" onchange="upd(${t.id},'end',this.value)" ${t.isGroup?'readonly':''}></div>
+                    <div class="cell col-h"><input type="number" min="0" step="0.1" value="${Number(t.est).toFixed(1)}" onchange="upd(${t.id},'est',this.value)" ${t.isGroup?'readonly':''}>${!t.isGroup?`<div class="icon-ref" onclick="openRef(${t.id})" title="実績参照">🔍</div>`:''}</div>
                     <div class="cell col-h center" style="font-weight:bold">${t.computedSum.toFixed(1)}</div>
                     <div class="cell col-h center" style="color:${remain<0?'red':'inherit'}">${remain}</div>
-                    <div class="cell col-ratio center" style="color:${ratio>100?'red':'inherit'}">${ratio}%</div>
-                    <div class="cell col-progress">${t.isGroup ? `<div style="text-align:center;">${progValue}%</div>` : `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;"><input type="number" min="0" max="100" value="${progValue}" onchange="upd(${t.id},'progress',this.value)" style="width:100%;text-align:center;"><span style="margin-left:2px;flex-shrink:0;">%</span></div>`}</div>
+                    <div class="cell col-ratio center">${t.est>0 ? Math.round((t.computedSum/t.est)*100) : 0}%</div>
+                    <div class="cell col-progress">${t.isGroup ? t.progress+'%' : `<input type="number" min="0" max="100" value="${t.progress}" onchange="upd(${t.id},'progress',this.value)">%`}</div>
                     <div class="cell col-op">
-                        <div class="icon-btn icon-group" onclick="toggleGrp(${t.id})" title="グループ化切替">${ICON_GROUP}</div>
-                        <div class="icon-btn icon-memo ${hasMemo?'has-content':''}" onclick="openMemo(${t.id})" title="メモを開く">${ICON_MEMO}</div>
+                        <div class="icon-btn" onclick="toggleGrp(${t.id})" title="グループ化切替">${ICON_GROUP}</div>
+                        <div class="icon-btn icon-memo ${t.memo?'has-content':''}" onclick="openMemo(${t.id})" title="メモを開く">${ICON_MEMO}</div>
+                        <div class="icon-btn" onclick="copyTask(${t.id})" title="タスクを複製">${ICON_COPY}</div>
                         ${!t.isGroup ? (isTracking ? `<div class="icon-btn icon-timer stop" onclick="stopTracking()" title="計測を停止して工数を入力">${ICON_STOP}</div>` : `<div class="icon-btn icon-timer start" onclick="startTracking(${t.id})" title="計測を開始">${ICON_START}</div>`) : ''}
                         <div class="icon-btn icon-delete" onclick="delT(${t.id})" title="削除">${ICON_DELETE}</div>
                     </div>
@@ -705,20 +721,23 @@
 
                 const gRow = document.createElement('div');
                 gRow.className = 'row' + (t.isGroup ? ' group-row' : '');
+                
                 dateList.forEach(d => {
-                    const valRaw = t.hours[d.str];
-                    const val = (valRaw !== undefined) ? valRaw.toFixed(1) : "";
-                    const inR = d.str >= t.start && d.str <= t.end;
-
+                    const val = t.hours[d.str] !== undefined ? parseFloat(t.hours[d.str]).toFixed(1) : "";
+                    const inRange = (t.start && t.end && d.str >= t.start && d.str <= t.end);
+                    
                     let isOver = false;
-                    let totalLoad = 0;
+                    let load = 0;
                     if (!t.isGroup && t.owner && dailyLoadMap[t.owner] && dailyLoadMap[t.owner][d.str]) {
-                        totalLoad = dailyLoadMap[t.owner][d.str];
-                        if (totalLoad > OVERLOAD_LIMIT) isOver = true;
+                        load = dailyLoadMap[t.owner][d.str];
+                        if(load > OVERLOAD_LIMIT) isOver = true;
                     }
+
+                    const isHoliday = d.w === 0 || d.holiday;
                     const c = document.createElement('div');
-                    c.className = `cell day-cell ${d.w===6?'sat':d.w===0?'sun':''} ${inR?'in-range':''} ${d.isToday?'is-today-col':''} ${isOver ? 'over-limit' : ''}`;
-                    if (isOver) c.title = `担当:${t.owner} 合計:${totalLoad.toFixed(1)}h (過負荷)`;
+                    c.className = `cell day-cell ${d.w===6?'sat':''} ${isHoliday?'sun holiday':''} ${inRange?'in-range':''} ${isOver?'over-limit':''}`;
+                    if(isOver) c.title = `合計:${load}h`;
+                    
                     if (!t.isGroup) {
                         const inv = document.createElement('input');
                         inv.type = "number"; inv.min = "0"; inv.step = "0.1"; inv.className = "hour-input";
@@ -732,10 +751,130 @@
             });
         }
 
-        /* 既存機能関数群 */
+        // --- データ操作 ---
+        function upd(id, f, v) { 
+            saveState();
+            const t = tasks.find(x => x.id === id); 
+            if(t) { 
+                if((f==='est'||f==='progress') && v<0) v=0;
+                if(f==='progress' && v>100) v=100;
+                t[f] = v;
+            }
+            render(); 
+        }
+        function updHr(id, dt, v) {
+            saveState();
+            const t = tasks.find(x => x.id === id);
+            if(t) {
+                const nv = parseFloat(v);
+                if (!v || isNaN(nv) || nv <= 0) delete t.hours[dt];
+                else t.hours[dt] = nv;
+            }
+            render();
+        }
+        function toggleGrp(id) { saveState(); const t = tasks.find(x => x.id === id); if(t) t.isGroup = !t.isGroup; render(); }
+        function addTask() { 
+            saveState();
+            const today = getLocalDateStr(); 
+            tasks.push({ id: Date.now(), title: '新規タスク', owner: '', start: today, end: today, est: 0.0, progress: 0, isGroup: false, hours: {}, memo: "" }); 
+            render(); 
+        }
+        function copyTask(id) {
+            saveState();
+            const t = tasks.find(x => x.id === id);
+            if(t) {
+                const newT = JSON.parse(JSON.stringify(t));
+                newT.id = Date.now();
+                newT.title += " (コピー)";
+                newT.hours = {}; 
+                newT.progress = 0;
+                const idx = tasks.findIndex(x => x.id === id);
+                tasks.splice(idx + 1, 0, newT);
+                render();
+            }
+        }
+        function delT(id) { 
+            if(confirm('削除しますか？')) { 
+                saveState();
+                if(trackingId === id) stopTracking(); 
+                tasks = tasks.filter(x => x.id !== id); 
+                render(); 
+            } 
+        }
+
+        // --- シフト機能 (改修版) ---
+        function openShiftModal() { 
+            const sel = document.getElementById('shift-target-group');
+            sel.innerHTML = '';
+            
+            // グループ（親タスク）のみをリストアップ
+            let hasGroup = false;
+            tasks.forEach(t => {
+                if(t.isGroup) {
+                    hasGroup = true;
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.innerText = t.title;
+                    sel.appendChild(opt);
+                }
+            });
+            
+            if (!hasGroup) {
+                alert("親タスク（グループ）が存在しません。先にグループを作成してください。");
+                return;
+            }
+
+            document.getElementById('shift-modal').style.display = 'flex'; 
+        }
+
+        function applyShift() {
+            const days = parseInt(document.getElementById('shift-days').value);
+            const targetGroupId = document.getElementById('shift-target-group').value;
+            
+            if (days === 0 || isNaN(days)) {
+                alert("シフト日数を入力してください");
+                return;
+            }
+            if (!targetGroupId) {
+                alert("対象の親タスクを選択してください");
+                return;
+            }
+            
+            saveState();
+            
+            // 対象グループ配下の未完了タスクを特定してシフト
+            let inTargetGroup = false;
+            let count = 0;
+
+            tasks.forEach(t => {
+                // グループ行の判定
+                if (t.isGroup) {
+                    // 選択されたグループに入った
+                    if (t.id.toString() === targetGroupId) {
+                        inTargetGroup = true;
+                    } else {
+                        // 別のグループに入ったら対象外へ
+                        inTargetGroup = false;
+                    }
+                    return; // グループ行自体の日付は自動計算なので触らない
+                }
+
+                // 対象グループ内 かつ 未完了タスクのみ処理
+                if (inTargetGroup && Number(t.progress) < 100) {
+                    if (t.start) t.start = addBusinessDays(t.start, days);
+                    if (t.end) t.end = addBusinessDays(t.end, days);
+                    count++;
+                }
+            });
+
+            document.getElementById('shift-modal').style.display = 'none';
+            render();
+            alert(`${count}件のタスクを営業日ベースで ${days}日 シフトしました。`);
+        }
+
+        // --- メモ ---
         function openMemo(id) {
-            const t = tasks.find(x => x.id === id); if(!t) return;
-            currentMemoId = id;
+            currentMemoId = id; const t = tasks.find(x => x.id === id);
             document.getElementById('memo-title').innerText = `メモ: ${t.title}`;
             document.getElementById('memo-text').value = t.memo || "";
             document.getElementById('memo-text').readOnly = false;
@@ -753,30 +892,11 @@
         }
         function closeMemo() { document.getElementById('memo-modal').style.display = 'none'; currentMemoId = null; }
         function saveMemo() {
-            if (currentMemoId === null) return;
-            const t = tasks.find(x => x.id === currentMemoId);
-            if (t) { t.memo = document.getElementById('memo-text').value; render(); }
+            if(currentMemoId) { saveState(); const t = tasks.find(x => x.id === currentMemoId); t.memo = document.getElementById('memo-text').value; render(); }
             closeMemo();
         }
-        function upd(id, f, v) { 
-            const t = tasks.find(x => x.id === id); 
-            if(t) { 
-                if((f==='est' || f==='progress') && v < 0) v = 0; 
-                if (f === 'progress') {
-                    if (Number(v) >= 100) { 
-                        const wasIncomplete = Number(t.progress || 0) < 100;
-                        t[f] = 100; 
-                        if (wasIncomplete) { 
-                            render(); 
-                            const confirmMsg = `タスク「${t.title}」が完了しました。\n振り返りとしてメモを入力しますか？`;
-                            if (confirm(confirmMsg)) { openMemo(id); }
-                            return;
-                        }
-                    } else { t[f] = Number(v); }
-                } else { t[f] = v; }
-                render(); 
-            } 
-        }
+
+        // --- 実績参照 ---
         function openRef(id) {
             const t = tasks.find(x => x.id === id); if(!t) return;
             currentRefTaskId = id;
@@ -791,6 +911,7 @@
         function closeRef() { document.getElementById('ref-modal').style.display = 'none'; currentRefTaskId = null; }
         function toggleSelectAll(checked) { currentRefResults.forEach(r => r.isSelected = checked); renderRefList(); recalculateSummary(); }
         function toggleRefSelection(index, checked) { if (currentRefResults[index]) { currentRefResults[index].isSelected = checked; recalculateSummary(); const selectAll = document.getElementById('select-all-ref'); const selectedCount = currentRefResults.filter(r => r.isSelected).length; const totalCount = currentRefResults.length; if (totalCount === 0) { selectAll.checked = false; selectAll.indeterminate = false; } else if (selectedCount === totalCount) { selectAll.checked = true; selectAll.indeterminate = false; } else if (selectedCount > 0) { selectAll.checked = false; selectAll.indeterminate = true; } else { selectAll.checked = false; selectAll.indeterminate = false; } } }
+        
         function searchRef() {
             const rawKey = document.getElementById('ref-search-key').value;
             const keywords = rawKey.trim() ? rawKey.toLowerCase().trim().split(/[\s　]+/) : [];
@@ -900,13 +1021,190 @@
                 const avgX = (average / maxRange) * w; ctx.beginPath(); ctx.strokeStyle = "rgba(255, 0, 0, 0.7)"; ctx.lineWidth = 2; ctx.setLineDash([3, 3]); ctx.moveTo(avgX, 5); ctx.lineTo(avgX, h - 5); ctx.stroke(); ctx.setLineDash([]); 
             }
         }
+
+        // --- タイマー ---
+        function startTracking(id) {
+            if(trackingId) stopTracking();
+            trackingId = id; trackingStartTime = new Date();
+            const t = tasks.find(x => x.id === id);
+            timerInterval = setInterval(() => {
+                const d = new Date(new Date() - trackingStartTime);
+                document.getElementById('tracker-status').innerText = `計測中: ${t.title} (${d.getUTCHours()}:${d.getUTCMinutes()}:${d.getUTCSeconds()})`;
+            }, 1000);
+            render();
+        }
+        function stopTracking() {
+            if(!trackingId) return;
+            saveState();
+            const h = (new Date() - trackingStartTime) / 3600000;
+            const t = tasks.find(x => x.id === trackingId);
+            const today = getLocalDateStr();
+            t.hours[today] = parseFloat(((t.hours[today]||0) + h).toFixed(1));
+            clearInterval(timerInterval); trackingId = null;
+            document.getElementById('tracker-status').innerText = "";
+            render();
+        }
+
+        // --- 分析・チャート (コスト機能削除版) ---
+        function openAnalyze() {
+            const now = new Date();
+            document.getElementById('ana-start').value = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('sv-SE');
+            document.getElementById('ana-end').value = new Date(now.getFullYear(), now.getMonth()+1, 0).toLocaleDateString('sv-SE');
+            const sel = document.getElementById('ana-target'); sel.innerHTML = '<option value="">(全プロジェクト・親タスク比較)</option>';
+            tasks.filter(t=>t.isGroup).forEach(t => sel.appendChild(new Option(t.title, t.id)));
+            document.getElementById('analyze-modal').style.display = 'flex';
+            setTimeout(renderCharts, 200);
+        }
+
+        function renderCharts() {
+            const start = document.getElementById('ana-start').value;
+            const end = document.getElementById('ana-end').value;
+            const targetId = document.getElementById('ana-target').value;
+            
+            const compareItems = [];
+            const pieData = {};
+            const dailyData = {}; 
+            
+            let cur = new Date(start); const endObj = new Date(end);
+            while(cur <= endObj) {
+                dailyData[cur.toLocaleDateString('sv-SE')] = {};
+                cur.setDate(cur.getDate()+1);
+            }
+
+            tasks.forEach(t => {
+                if (t.isGroup) {
+                    if (targetId && t.id != targetId) return;
+                } else {
+                    let tAct = 0;
+                    Object.keys(t.hours).forEach(d => {
+                        if (d >= start && d <= end) {
+                            const h = t.hours[d];
+                            const val = h;
+                            tAct += val;
+                            const owner = t.owner || "(未割当)";
+                            pieData[owner] = (pieData[owner] || 0) + val;
+                            if (dailyData[d]) dailyData[d][owner] = (dailyData[d][owner] || 0) + val;
+                        }
+                    });
+                    
+                    if (tAct > 0 || (t.est > 0 && !targetId)) { 
+                        const estVal = t.est;
+                        compareItems.push({ label: t.title, est: estVal, act: tAct });
+                    }
+                }
+            });
+
+            drawBarChart(compareItems);
+            drawPieChart(pieData);
+            drawDailyChart(dailyData);
+        }
+
+        function drawBarChart(items) {
+            const canvas = document.getElementById('chart-bar-compare');
+            const ctx = canvas.getContext('2d');
+            const h = Math.max(items.length * 40 + 50, 200);
+            canvas.height = h; canvas.width = canvas.parentElement.offsetWidth;
+            const w = canvas.width;
+            ctx.clearRect(0,0,w,h);
+            
+            const maxVal = Math.max(...items.map(i=>Math.max(i.est, i.act))) || 1;
+            const scale = (w - 150) / maxVal;
+            
+            items.forEach((it, i) => {
+                const y = 30 + i * 40;
+                ctx.fillStyle = "#333"; ctx.font="12px sans-serif"; ctx.textAlign="right";
+                ctx.fillText(it.label.slice(0,10), 140, y + 15);
+                
+                ctx.fillStyle = "#ccc";
+                ctx.fillRect(150, y, it.est * scale, 10);
+                
+                ctx.fillStyle = it.act > it.est ? "#cc0000" : "#5b9bd5";
+                ctx.fillRect(150, y+12, it.act * scale, 10);
+                
+                ctx.textAlign="left"; ctx.fillStyle="#555"; ctx.font="10px sans-serif";
+                const valStr = it.act.toFixed(1);
+                ctx.fillText(valStr + "h", 150 + it.act * scale + 5, y+20);
+            });
+        }
+
+        function drawPieChart(data) {
+            const canvas = document.getElementById('chart-pie-owner');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.parentElement.offsetWidth;
+            const h = canvas.height = 250;
+            ctx.clearRect(0,0,w,h);
+            
+            let total = 0; Object.values(data).forEach(v => total += v);
+            if(total===0) { ctx.fillText("データなし", w/2, h/2); return; }
+
+            let start = -Math.PI/2;
+            const colors = ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4'];
+            let i = 0;
+            Object.keys(data).forEach(k => {
+                const val = data[k];
+                const angle = (val/total) * Math.PI * 2;
+                ctx.beginPath(); ctx.moveTo(w/3, h/2); ctx.arc(w/3, h/2, 100, start, start+angle);
+                ctx.fillStyle = colors[i%colors.length]; ctx.fill();
+                
+                ctx.fillRect(w*0.6, 50 + i*20, 10, 10);
+                ctx.fillStyle = "#333"; ctx.textAlign="left";
+                const valStr = val.toFixed(1);
+                ctx.fillText(`${k}: ${valStr}h`, w*0.6 + 15, 60 + i*20);
+                
+                start += angle; i++;
+            });
+        }
+
+        function drawDailyChart(data) {
+            const canvas = document.getElementById('chart-bar-daily');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.parentElement.offsetWidth;
+            const h = canvas.height = 300;
+            ctx.clearRect(0,0,w,h);
+            
+            const dates = Object.keys(data).sort();
+            const owners = new Set();
+            dates.forEach(d => Object.keys(data[d]).forEach(o => owners.add(o)));
+            const ownerArr = Array.from(owners);
+            const colors = ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000'];
+
+            let max = 0;
+            dates.forEach(d => {
+                const sum = Object.values(data[d]).reduce((a,b)=>a+b,0);
+                if(sum > max) max = sum;
+            });
+            if(max===0) max=1;
+
+            const barW = Math.min(30, (w-50)/dates.length - 2);
+            const scale = (h-50) / max;
+
+            dates.forEach((d, i) => {
+                let y = h - 30;
+                const x = 40 + i * ((w-50)/dates.length);
+                ownerArr.forEach((o, oi) => {
+                    const val = data[d][o] || 0;
+                    if(val > 0) {
+                        const barH = val * scale;
+                        ctx.fillStyle = colors[oi%colors.length];
+                        ctx.fillRect(x, y - barH, barW, barH);
+                        y -= barH;
+                    }
+                });
+                if (dates.length < 15 || i%5===0) {
+                    ctx.fillStyle = "#333"; ctx.textAlign="center"; ctx.font="10px sans-serif";
+                    ctx.fillText(d.slice(5), x+barW/2, h-15);
+                }
+            });
+        }
+
+        // --- その他 外部連携 (日報復刻版) ---
         function openReport() { document.getElementById('report-month').value = new Date().toISOString().slice(0, 7); renderReportContent(); document.getElementById('report-modal').style.display = 'flex'; }
         function renderReportContent() {
             const ym = document.getElementById('report-month').value; if (!ym) return;
             const tbody = document.getElementById('report-body'); tbody.innerHTML = "";
             const dailyData = {};
             
-            // 親タスク名のマッピング生成（各タスクが属する親タスク名を事前に把握）
+            // 親タスク名のマッピング生成
             const parentMap = {};
             let currentParentTitle = "";
             tasks.forEach(t => {
@@ -943,503 +1241,140 @@
             });
         }
         function copyReportToClipboard() {
-            const tbody = document.getElementById('report-body'); let text = "日付\t担当者\tタスク内訳\t合計(h)\n";
-            Array.from(tbody.querySelectorAll('tr')).forEach(tr => { const cols = Array.from(tr.querySelectorAll('td')).map(td => td.innerText); if(cols.length > 1) text += cols.join('\t') + "\n"; });
-            navigator.clipboard.writeText(text).then(() => { alert("クリップボードにコピーしました"); });
+            let txt = "日付\t担当\t内訳\t合計\n";
+            document.querySelectorAll("#report-body tr").forEach(tr => {
+                txt += Array.from(tr.cells).map(c => c.innerText).join("\t") + "\n";
+            });
+            navigator.clipboard.writeText(txt).then(()=>alert("コピーしました"));
+        }
+        function downloadJSON() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(tasks,null,2)],{type:'application/json'})); a.download='wbs_data.json'; a.click(); }
+        function downloadCSV() {
+            let csv = "No,Task,Owner,Start,End,Est,Act,Progress,Memo\n";
+            tasks.forEach(t => {
+                csv += `"${t.no}","${t.title}","${t.owner}","${t.start}","${t.end}",${t.est},${t.computedSum},${t.progress},"${t.memo}"\n`;
+            });
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bom, csv],{type:'text/csv'})); a.download='wbs.csv'; a.click();
+        }
+        function uploadJSON(e) {
+            const r = new FileReader(); r.onload = ev => { saveState(); tasks = JSON.parse(ev.target.result); render(); }; r.readAsText(e.target.files[0]);
         }
         
-        function openAnalyze() {
-            // 初期値セット (今月)
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth() + 1;
-            const firstDay = `${year}-${String(month).padStart(2,'0')}-01`;
-            const lastDayObj = new Date(year, month, 0);
-            const lastDay = `${year}-${String(month).padStart(2,'0')}-${String(lastDayObj.getDate()).padStart(2,'0')}`;
-
-            document.getElementById('ana-start').value = firstDay;
-            document.getElementById('ana-end').value = lastDay;
-
-            // 分析対象（親タスク一覧）の更新
-            updateAnalyzeOptions();
+        // --- フィルタロジック (初期バージョン仕様) ---
+        function toggleFilterMenu(e) { 
+            e.stopPropagation(); 
+            document.getElementById('date-filter-menu').style.display='none'; 
+            document.getElementById('prog-filter-menu').style.display='none'; 
+            const menu = document.getElementById('filter-menu'); 
+            if(menu.style.display==='flex'){ menu.style.display='none'; return; }
             
-            document.getElementById('analyze-modal').style.display = 'flex';
-            setTimeout(renderCharts, 200); 
-        }
-
-        function updateAnalyzeOptions() {
-            const sel = document.getElementById('ana-target');
-            sel.innerHTML = '<option value="">(全プロジェクト・親タスク比較)</option>';
+            menu.innerHTML = '';
+            // 全解除・全選択
+            const allBtnDiv = document.createElement('div'); allBtnDiv.style.padding="4px"; allBtnDiv.style.borderBottom="1px solid #eee"; allBtnDiv.style.marginBottom="4px"; allBtnDiv.style.display="flex"; allBtnDiv.style.gap="10px"; allBtnDiv.style.justifyContent="center";
+            const btnAll = document.createElement('button'); btnAll.innerText="すべて"; btnAll.onclick=()=>{menu.querySelectorAll('input').forEach(c=>c.checked=true)};
+            const btnClear = document.createElement('button'); btnClear.innerText="解除"; btnClear.onclick=()=>{menu.querySelectorAll('input').forEach(c=>c.checked=false)};
+            allBtnDiv.appendChild(btnAll); allBtnDiv.appendChild(btnClear); menu.appendChild(allBtnDiv);
             
-            // 親タスク(グループ)のみ抽出
-            tasks.forEach(t => {
-                if(t.isGroup) {
-                    const opt = document.createElement('option');
-                    opt.value = t.id;
-                    opt.innerText = t.title;
-                    sel.appendChild(opt);
-                }
-            });
-        }
-
-        // --- 分析チャート描画 ---
-        function renderCharts() {
-            const start = document.getElementById('ana-start').value;
-            const end = document.getElementById('ana-end').value;
-            const targetId = document.getElementById('ana-target').value;
-            
-            if(!start || !end) return;
-
-            const data = getAnalyzeData(start, end, targetId);
-            
-            renderCompareChart(data.compareData); // 予実比較
-            renderPieChart(data.pieData); // 担当者別工数
-            renderDailyChart(data.dailyData); // 日別推移
-            renderSubtaskPieChart(data.subtaskData, data.parentTaskData, targetId); // 親/子タスク要素別
-        }
-
-        function getAnalyzeData(start, end, targetId) {
-            const isAll = (targetId === "");
-            
-            const compareData = []; // { label, est, act }
-            const dailyData = {}; // { date: { owner: hours } }
-            const pieData = {}; // { owner: hours }
-            const subtaskData = {}; // { taskTitle: hours } 子タスク要素別
-            const parentTaskData = {}; // { groupTitle: hours } 親タスク要素別
-
-            // 日付範囲の配列生成 & dailyData初期化
-            let cur = new Date(start);
-            const endObj = new Date(end);
-            while(cur <= endObj) {
-                const ds = cur.toLocaleDateString('sv-SE');
-                dailyData[ds] = {};
-                cur.setDate(cur.getDate() + 1);
-            }
-
-            // データ集計
-            if(isAll) {
-                // 全グループを対象に、グループ単位で集計
-                tasks.forEach(g => {
-                    if(g.isGroup) {
-                        let gEst = 0;
-                        let gAct = 0;
-                        let inGroup = false;
-                        for(const t of tasks) {
-                            if(t.id === g.id) { inGroup = true; continue; }
-                            if(inGroup && t.isGroup) { inGroup = false; break; }
-                            if(inGroup) {
-                                gEst += Number(t.est || 0);
-                                Object.keys(t.hours).forEach(d => {
-                                    if(d >= start && d <= end) {
-                                        const h = t.hours[d];
-                                        gAct += h;
-                                        
-                                        const owner = t.owner || "(未割当)";
-                                        if(dailyData[d]) {
-                                            dailyData[d][owner] = (dailyData[d][owner] || 0) + h;
-                                        }
-                                        pieData[owner] = (pieData[owner] || 0) + h;
-                                        parentTaskData[g.title] = (parentTaskData[g.title] || 0) + h;
-                                    }
-                                });
-                            }
-                        }
-                        if(gAct > 0 || gEst > 0) {
-                            compareData.push({ label: g.title, est: gEst, act: gAct });
-                        }
-                    }
-                });
-            } else {
-                // 特定グループ内の子タスク単位で集計
-                let inTarget = false;
-                for(const t of tasks) {
-                    if(t.id == targetId) { inTarget = true; continue; }
-                    if(inTarget && t.isGroup) break;
-                    if(inTarget) {
-                        let tAct = 0;
-                        Object.keys(t.hours).forEach(d => {
-                            if(d >= start && d <= end) {
-                                const h = t.hours[d];
-                                tAct += h;
-                                const owner = t.owner || "(未割当)";
-                                if(dailyData[d]) {
-                                    dailyData[d][owner] = (dailyData[d][owner] || 0) + h;
-                                }
-                                pieData[owner] = (pieData[owner] || 0) + h;
-                                subtaskData[t.title] = (subtaskData[t.title] || 0) + h;
-                            }
-                        });
-                        compareData.push({ label: t.title, est: Number(t.est||0), act: tAct });
-                    }
-                }
-            }
-            return { compareData, dailyData, pieData, subtaskData, parentTaskData };
-        }
-
-        // 1. 予実比較 (横棒グラフ - 数値に(h)追加)
-        function renderCompareChart(items) {
-            const container = document.getElementById('chart-compare-container');
-            const canvas = document.getElementById('chart-bar-compare');
-            const ctx = canvas.getContext('2d');
-            
-            const itemHeight = 60;
-            const calculatedHeight = Math.max(200, items.length * itemHeight + 50);
-            canvas.style.height = calculatedHeight + 'px'; 
-            canvas.height = calculatedHeight;
-            const w = canvas.width = container.offsetWidth;
-            const h = canvas.height;
-            
-            ctx.clearRect(0, 0, w, h);
-
-            if(items.length === 0) { 
-                ctx.fillStyle = "#666"; ctx.font = "14px sans-serif";
-                ctx.fillText("データなし", w/2 - 30, h/2); 
-                return; 
-            }
-
-            const maxVal = Math.max(...items.map(t => Math.max(t.est, t.act))) || 10;
-            const xMax = maxVal * 1.3; 
-            
-            const labelAreaW = 150;
-            const graphAreaW = w - labelAreaW - 40; 
-            const barH = 15;
-            const groupGap = 40;
-
-            ctx.strokeStyle = "#ccc";
-            ctx.beginPath(); ctx.moveTo(labelAreaW, 20); ctx.lineTo(labelAreaW, h - 20); ctx.stroke();
-
-            items.forEach((item, i) => {
-                const yBase = 40 + i * (barH * 2 + groupGap);
-                
-                ctx.fillStyle = "#333";
-                ctx.font = "12px sans-serif";
-                ctx.textAlign = "right";
-                let label = item.label.length > 18 ? item.label.substr(0,18)+".." : item.label;
-                ctx.fillText(label, labelAreaW - 10, yBase + barH);
-
-                const estW = (item.est / xMax) * graphAreaW;
-                const actW = (item.act / xMax) * graphAreaW;
-
-                ctx.fillStyle = "#ccc";
-                ctx.fillRect(labelAreaW, yBase, estW, barH);
-                ctx.textAlign = "left";
-                ctx.fillStyle = "#333";
-                ctx.fillText(item.est.toFixed(1) + "(h)", labelAreaW + estW + 5, yBase + 12); 
-
-                ctx.fillStyle = item.act > item.est ? "#cc0000" : "#5b9bd5";
-                ctx.fillRect(labelAreaW, yBase + barH + 2, actW, barH);
-                ctx.fillStyle = "#333"; 
-                ctx.fillText(item.act.toFixed(1) + "(h)", labelAreaW + actW + 5, yBase + barH + 12 + 2); 
-            });
-        }
-
-        // 2. 担当者別工数内訳 (円グラフ)
-        function renderPieChart(pieData) {
-            const canvas = document.getElementById('chart-pie-owner');
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width = canvas.parentElement.offsetWidth;
-            const h = canvas.height = 250;
-            ctx.clearRect(0, 0, w, h);
-
-            const keys = Object.keys(pieData).sort((a,b) => pieData[b] - pieData[a]); // 多い順
-            let total = 0;
-            keys.forEach(k => total += pieData[k]);
-
-            if(total === 0) { 
-                ctx.fillStyle = "#666"; ctx.font = "14px sans-serif";
-                ctx.fillText("期間内の実績なし", w/2 - 40, h/2); 
-                return; 
-            }
-
-            const colors = ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4', '#70ad47', '#255e91', '#9e480e', '#636363'];
-            let startAngle = -Math.PI / 2;
-            const centerX = w/2 - 80, centerY = h/2, radius = Math.min(w,h)/2 - 30;
-
-            keys.forEach((key, i) => {
-                const val = pieData[key];
-                if(val <= 0) return;
-                const sliceAngle = (val / total) * 2 * Math.PI;
-                
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
-                ctx.closePath();
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.fill();
-                
-                // 凡例 (右側)
-                const lx = w - 160;
-                const ly = 30 + i * 20;
-                if (ly < h - 20) { // はみ出し防止
-                    ctx.fillStyle = colors[i % colors.length];
-                    ctx.fillRect(lx, ly, 10, 10);
-                    ctx.fillStyle = "#333";
-                    ctx.font = "11px sans-serif";
-                    ctx.textAlign = "left";
-                    let label = key.length > 10 ? key.substr(0,10)+".." : key;
-                    ctx.fillText(`${label}: ${val.toFixed(1)}h (${Math.round(val/total*100)}%)`, lx + 15, ly + 9);
-                }
-
-                startAngle += sliceAngle;
-            });
-        }
-
-        // 3. 日別工数推移 (担当者別積み上げ)
-        function renderDailyChart(dailyData) {
-            const canvas = document.getElementById('chart-bar-daily');
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width = canvas.parentElement.offsetWidth;
-            const h = canvas.height = 300;
-            ctx.clearRect(0, 0, w, h);
-
-            const dates = Object.keys(dailyData).sort();
-            if(dates.length === 0) { 
-                ctx.fillStyle = "#666"; ctx.font = "14px sans-serif";
-                ctx.fillText("期間内の実績なし", w/2 - 40, h/2); 
-                return; 
-            }
-
-            // 全担当者リスト取得 (色割り当て用)
-            const allOwners = new Set();
-            Object.values(dailyData).forEach(dayMap => {
-                Object.keys(dayMap).forEach(o => allOwners.add(o));
-            });
-            const owners = Array.from(allOwners).sort();
-            const colors = ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4', '#70ad47', '#255e91', '#9e480e', '#636363'];
-
-            // 最大値計算 (積み上げ)
-            let maxDaily = 0;
-            dates.forEach(d => {
-                const total = Object.values(dailyData[d]).reduce((a,b)=>a+b,0);
-                if(total > maxDaily) maxDaily = total;
-            });
-            const yMax = Math.max(maxDaily, 8) * 1.1; 
-
-            const chartH = h - 60; // 下に凡例を入れるため余白多め
-            const barW = Math.min(40, (w - 60) / dates.length - 2);
-            
-            // 軸
-            ctx.strokeStyle = "#ccc";
-            ctx.beginPath(); ctx.moveTo(40, 10); ctx.lineTo(40, h-40); ctx.lineTo(w-10, h-40); ctx.stroke();
-
-            // 8h基準線は表示しない
-
-            dates.forEach((d, i) => {
-                const x = 50 + i * ((w - 60) / dates.length);
-                const dayMap = dailyData[d];
-                
-                let currentY = h - 40;
-                let dayTotal = 0;
-
-                owners.forEach((owner, oi) => {
-                    const val = dayMap[owner] || 0;
-                    if(val > 0) {
-                        const barPartH = (val / yMax) * chartH;
-                        ctx.fillStyle = colors[oi % colors.length];
-                        ctx.fillRect(x, currentY - barPartH, barW, barPartH);
-                        currentY -= barPartH;
-                        dayTotal += val;
-                    }
-                });
-
-                // 合計値を上に表示 (h)付き
-                if(dayTotal > 0) {
-                    ctx.fillStyle = "#333";
-                    ctx.textAlign = "center";
-                    ctx.font = "10px sans-serif";
-                    ctx.fillText(dayTotal.toFixed(1) + "(h)", x + barW/2, currentY - 5);
-                }
-
-                // 日付ラベル
-                if (dates.length < 15 || i % Math.ceil(dates.length/10) === 0) {
-                    ctx.fillStyle = "#333";
-                    ctx.textAlign = "center";
-                    ctx.fillText(d.slice(5), x + barW/2, h - 25);
-                }
-            });
-
-            // 凡例 (下部)
-            let lx = 50;
-            const ly = h - 10;
-            owners.forEach((owner, i) => {
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.fillRect(lx, ly, 10, 10);
-                ctx.fillStyle = "#333";
-                ctx.textAlign = "left";
-                ctx.fillText(owner, lx + 15, ly + 9);
-                lx += ctx.measureText(owner).width + 30;
-            });
-        }
-
-        // 4. 子タスク 要素割合 (円グラフ) / 親タスク 要素割合 内訳
-        function renderSubtaskPieChart(subtaskData, parentTaskData, targetId) {
-            const canvas = document.getElementById('chart-pie-subtask');
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width = canvas.parentElement.offsetWidth;
-            const h = canvas.height = 250;
-            ctx.clearRect(0, 0, w, h);
-
-            // targetIdが空文字列の場合は親タスク要素別、そうでない場合は子タスク要素別
-            const isParentView = (targetId === "");
-            const dataToUse = isParentView ? parentTaskData : subtaskData;
-
-            const keys = Object.keys(dataToUse).sort((a,b) => dataToUse[b] - dataToUse[a]); // 多い順
-            let total = 0;
-            keys.forEach(k => total += dataToUse[k]);
-
-            if(total === 0) { 
-                ctx.fillStyle = "#666"; ctx.font = "14px sans-serif";
-                ctx.fillText("期間内の実績なし", w/2 - 40, h/2); 
-                return; 
-            }
-
-            const colors = ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000', '#4472c4', '#70ad47', '#255e91', '#9e480e', '#636363', '#ff6b6b', '#4ecdc4', '#45b7d1'];
-            let startAngle = -Math.PI / 2;
-            const centerX = w/2 - 80, centerY = h/2 + 5, radius = Math.min(w,h)/2 - 30;
-
-            keys.forEach((key, i) => {
-                const val = dataToUse[key];
-                if(val <= 0) return;
-                const sliceAngle = (val / total) * 2 * Math.PI;
-                
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
-                ctx.closePath();
-                ctx.fillStyle = colors[i % colors.length];
-                ctx.fill();
-                
-                // 凡例 (右側)
-                const lx = w - 180;
-                const ly = 35 + i * 18;
-                if (ly < h - 20) { // はみ出し防止
-                    ctx.fillStyle = colors[i % colors.length];
-                    ctx.fillRect(lx, ly, 10, 10);
-                    ctx.fillStyle = "#333";
-                    ctx.font = "11px sans-serif";
-                    ctx.textAlign = "left";
-                    let label = key.length > 12 ? key.substr(0,12)+".." : key;
-                    ctx.fillText(`${label}: ${val.toFixed(1)}h (${Math.round(val/total*100)}%)`, lx + 15, ly + 9);
-                }
-
-                startAngle += sliceAngle;
-            });
-        }
-
-        // --- タイマー・編集機能 ---
-        function startTracking(id) {
-            if(trackingId) stopTracking();
-            trackingId = id; trackingStartTime = new Date();
-            const t = tasks.find(x => x.id === id);
-            if(timerInterval) clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                const diffMs = new Date() - trackingStartTime;
-                const h = Math.floor(diffMs / 3600000);
-                const m = Math.floor((diffMs % 3600000) / 60000);
-                const s = Math.floor((diffMs % 60000) / 1000);
-                document.getElementById('tracker-status').innerText = `計測中 (${[h,m,s].map(v=>v.toString().padStart(2,'0')).join(':')}): ${t.title}`;
-            }, 1000);
-            render();
-        }
-        function stopTracking() {
-            if(!trackingId) return;
-            const diffH = (new Date() - trackingStartTime) / 3600000;
-            const todayStr = getLocalDateStr();
-            const t = tasks.find(x => x.id === trackingId);
-            t.hours[todayStr] = parseFloat(((t.hours[todayStr] || 0) + diffH).toFixed(1));
-            clearInterval(timerInterval); trackingId = null; trackingStartTime = null;
-            document.getElementById('tracker-status').innerText = "";
-            render();
-        }
-
-        function updHr(id, dt, v) { const t = tasks.find(x => x.id === id); if(t) { const nv = parseFloat(v); if (!v || isNaN(nv) || nv <= 0) delete t.hours[dt]; else t.hours[dt] = nv; render(); } }
-        function toggleGrp(id) { const t = tasks.find(x => x.id === id); if(t) { t.isGroup = !t.isGroup; render(); } }
-        function addTask() { 
-            const today = getLocalDateStr(); 
-            tasks.push({ id: Date.now(), title: '新タスク', owner: '', start: today, end: today, est: 0.0, progress: 0, isGroup: false, hours: {}, memo: "" }); 
-            render(); 
-        }
-        function delT(id) { if(confirm('削除しますか？')) { if(trackingId === id) stopTracking(); tasks = tasks.filter(x => x.id !== id); render(); } }
-        function downloadJSON() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' })); a.download = `wbs_data.json`; a.click(); }
-        function downloadCSV() {
-            // ガントチャートの日付範囲を計算（render関数と同じロジック）
-            const todayStr = getLocalDateStr();
-            const todayObj = new Date(todayStr);
-            const allDates = tasks.flatMap(t => [new Date(t.start), new Date(t.end)]);
-            let minD = new Date(Math.min(...allDates, todayObj));
-            minD.setDate(minD.getDate() - 5);
-            let maxD = new Date(Math.max(...allDates, todayObj));
-            maxD.setDate(maxD.getDate() + 25);
-
-            const dateList = [];
-            for (let d = new Date(minD); d <= maxD; d.setDate(d.getDate() + 1)) {
-                const curStr = d.toLocaleDateString('sv-SE');
-                dateList.push(curStr);
-            }
-
-            // CSVヘッダー生成
-            const headers = ['No.', '親タスク', 'タスク', '見積(h)', '実績(h)', '進捗(%)', '担当者', '開始日', '終了日', 'メモ', ...dateList];
-            
-            // 親タスク追跡用
-            let currentParentTitle = '';
-            
-            // CSVデータ行を生成
-            const rows = [];
-            rows.push(headers.map(h => `"${h}"`).join(','));
-            
-            let rowNum = 0;
-            tasks.forEach((t, idx) => {
-                rowNum++;
-                const computedSum = t.computedSum || (t.isGroup ? 0 : Object.values(t.hours).reduce((a, b) => a + Number(b), 0));
-                
-                // 基本情報の行データ
-                const baseRow = [
-                    rowNum,
-                    t.isGroup ? '' : currentParentTitle,
-                    t.title,
-                    t.est || '',
-                    computedSum.toFixed(1),
-                    t.progress || 0,
-                    t.owner || '',
-                    t.start || '',
-                    t.end || '',
-                    t.memo ? `"${t.memo.replace(/"/g, '""')}"` : ''
-                ];
-                
-                // 日付ごとの工数を追加
-                const dateValues = dateList.map(date => {
-                    const val = t.hours && t.hours[date];
-                    return val ? Number(val).toFixed(1) : '';
-                });
-                
-                const row = [...baseRow, ...dateValues];
-                
-                rows.push(row.map((v, i) => {
-                    // 数値列の場合は引用符なし
-                    if ([0, 3, 4, 5].includes(i)) return v;
-                    return typeof v === 'string' && v !== '' ? `"${v}"` : v;
-                }).join(','));
-                
-                if (t.isGroup) {
-                    currentParentTitle = t.title;
-                }
+            const owners = new Set(); tasks.forEach(t=>owners.add(t.owner||""));
+            Array.from(owners).sort().forEach(o=>{
+                const val = o===""?"(未割当)":o;
+                const label = document.createElement('label'); 
+                const chk = document.createElement('input'); chk.type="checkbox"; chk.value=o;
+                if(visibleOwners===null || visibleOwners.has(o)) chk.checked=true;
+                label.appendChild(chk); label.appendChild(document.createTextNode(val));
+                menu.appendChild(label);
             });
             
-            const csvContent = rows.join('\n');
-            
-            // Excelで正しく認識されるようBOM付きUTF-8で出力
-            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
-            const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `wbs_${new Date().toLocaleDateString('sv-SE')}.csv`;
-            a.click();
+            const actionDiv = document.createElement('div'); actionDiv.className='filter-actions';
+            const applyBtn = document.createElement('button'); applyBtn.className='primary'; applyBtn.innerText="適用";
+            applyBtn.onclick=()=>{
+                const checked = menu.querySelectorAll('input:checked');
+                if(checked.length === owners.size) visibleOwners = null;
+                else { visibleOwners=new Set(); checked.forEach(c=>visibleOwners.add(c.value)); }
+                menu.style.display='none'; render();
+            };
+            actionDiv.appendChild(applyBtn); menu.appendChild(actionDiv);
+            menu.style.display='flex';
         }
-        function uploadJSON(e) { const reader = new FileReader(); reader.onload = (ev) => { tasks = JSON.parse(ev.target.result); render(); scrollToToday(); }; reader.readAsText(e.target.files[0]); }
-        function scrollToToday() { const target = document.getElementById('today-target'); if (ganttContainer && target) ganttContainer.scrollLeft = target.offsetLeft - 100; }
+        
+        function toggleDateFilterMenu(e) { 
+            e.stopPropagation(); document.getElementById('filter-menu').style.display='none'; document.getElementById('prog-filter-menu').style.display='none';
+            const menu = document.getElementById('date-filter-menu');
+            if(menu.style.display==='flex'){ menu.style.display='none'; return; }
+            
+            menu.innerHTML = '';
+            const container = document.createElement('div');
+            container.className = 'date-filter-container';
+            
+            const label = document.createElement('div');
+            label.style.marginBottom = "4px";
+            label.style.fontWeight = "bold";
+            label.style.fontSize = "11px";
+            label.innerText = "開始日以降を表示:";
+            container.appendChild(label);
+            
+            const inp = document.createElement('input');
+            inp.type = "date";
+            inp.id = "df-input";
+            inp.className = "date-filter-input";
+            if(visibleStartDate) inp.value = visibleStartDate;
+            container.appendChild(inp);
+            menu.appendChild(container);
 
+            const actionDiv = document.createElement('div'); actionDiv.className='filter-actions';
+            const applyBtn = document.createElement('button'); applyBtn.className='primary'; applyBtn.innerText="適用";
+            applyBtn.onclick=()=>{ visibleStartDate=inp.value||null; menu.style.display='none'; render(); };
+            const clearBtn = document.createElement('button'); clearBtn.innerText="解除";
+            clearBtn.onclick=()=>{ visibleStartDate=null; menu.style.display='none'; render(); };
+            
+            actionDiv.appendChild(applyBtn); actionDiv.appendChild(clearBtn); menu.appendChild(actionDiv);
+            menu.style.display='flex';
+        }
+        
+        function toggleProgressFilterMenu(e) { 
+            e.stopPropagation(); document.getElementById('filter-menu').style.display='none'; document.getElementById('date-filter-menu').style.display='none';
+            const menu = document.getElementById('prog-filter-menu');
+            if(menu.style.display==='flex'){ menu.style.display='none'; return; }
+            menu.innerHTML = '';
+            // 初期バージョンのロジック
+            const opts = [{v:'incomplete',t:'未完了'},{v:'complete',t:'完了 (100%)'}];
+            
+            const allBtnDiv = document.createElement('div'); allBtnDiv.style.padding="4px"; allBtnDiv.style.borderBottom="1px solid #eee"; allBtnDiv.style.marginBottom="4px"; allBtnDiv.style.display="flex"; allBtnDiv.style.gap="10px"; allBtnDiv.style.justifyContent="center";
+            const btnAll = document.createElement('button'); btnAll.innerText="すべて"; btnAll.onclick=()=>{menu.querySelectorAll('input').forEach(c=>c.checked=true)};
+            const btnClear = document.createElement('button'); btnClear.innerText="解除"; btnClear.onclick=()=>{menu.querySelectorAll('input').forEach(c=>c.checked=false)};
+            allBtnDiv.appendChild(btnAll); allBtnDiv.appendChild(btnClear); menu.appendChild(allBtnDiv);
+
+            opts.forEach(o=>{
+                const label=document.createElement('label'); const chk=document.createElement('input'); chk.type="checkbox"; chk.value=o.v;
+                if(visibleProgress===null||visibleProgress.has(o.v)) chk.checked=true;
+                label.appendChild(chk); label.appendChild(document.createTextNode(o.t)); menu.appendChild(label);
+            });
+            
+            const actionDiv = document.createElement('div'); actionDiv.className='filter-actions';
+            const applyBtn = document.createElement('button'); applyBtn.className='primary'; applyBtn.innerText="適用";
+            applyBtn.onclick=()=>{
+                const checked=menu.querySelectorAll('input:checked');
+                if(checked.length===opts.length) visibleProgress=null;
+                else { visibleProgress=new Set(); checked.forEach(c=>visibleProgress.add(c.value)); }
+                menu.style.display='none'; render();
+            };
+            actionDiv.appendChild(applyBtn); menu.appendChild(actionDiv);
+            menu.style.display='flex';
+        }
+        document.addEventListener('click', () => {
+             document.querySelectorAll('.filter-menu').forEach(e => e.style.display = 'none');
+        });
+
+        const ganttContainer = document.getElementById('gantt-container');
+        const wbsBodyContainer = document.getElementById('wbs-body-container');
+        ganttContainer.addEventListener('scroll', () => { wbsBodyContainer.scrollTop = ganttContainer.scrollTop; });
+        
         render();
-        window.onload = () => setTimeout(scrollToToday, 200);
+        setTimeout(() => {
+            const t = document.getElementById('today-target');
+            if(t) ganttContainer.scrollLeft = t.offsetLeft - 100;
+        }, 200);
+
     </script>
 </body>
 </html>
