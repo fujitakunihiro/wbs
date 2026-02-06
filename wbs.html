@@ -101,10 +101,14 @@
             background: var(--header-bg); 
             box-shadow: 0 1px 0 #888; 
         }
-        .header .cell { 
-            background: var(--header-bg); 
-            justify-content: center; 
-            border-bottom: 1px solid #888;
+
+        .milestone-header {
+            position: sticky;
+            top: var(--row-h);
+            z-index: 39;
+            background: #e0f2fe !important;
+            border-top: 2px solid #0284c7 !important;
+            border-bottom: 2px solid #0284c7 !important;
         }
 
         .header .col-owner, 
@@ -263,6 +267,7 @@
     <div class="controls">
         <h2 style="margin: 0 10px 0 0; font-size: 14px;">工数管理</h2>
         <button class="primary" onclick="addTask()">＋ タスク追加</button>
+        <button onclick="addMilestone()">🎯 マイルストーン</button>
         <button onclick="undo()" id="btn-undo" disabled>🔙 元に戻す</button>
         <button onclick="openShiftModal()">⏩ シフト</button>
         <div style="width: 1px; height: 20px; background: #ccc; margin: 0 5px;"></div>
@@ -281,6 +286,7 @@
             <div class="guide-item"><span class="guide-icon">📄</span>メモ</div>
             <div class="guide-item"><span class="guide-icon">▶</span>タイマー</div>
             <div class="guide-item"><span class="guide-icon">🔍</span>実績参照</div>
+            <div class="guide-item"><span class="guide-icon">🎯</span>マイルストーン</div>
             <div class="guide-item" style="color:var(--overload-col); font-weight:bold;">■過負荷(>8h)</div>
         </div>
     </div>
@@ -396,6 +402,32 @@
         </div>
     </div>
 
+    <!-- マイルストーン管理モーダル -->
+    <div id="milestone-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 600px;">
+            <h3>マイルストーン管理</h3>
+            <div style="margin-bottom: 15px;">
+                <input type="text" id="milestone-name" placeholder="マイルストーン名" style="border: 1px solid #ccc; padding: 6px; border-radius: 3px; width: 300px; margin-right: 10px;">
+                <input type="date" id="milestone-date" style="border: 1px solid #ccc; padding: 6px; border-radius: 3px; margin-right: 10px;">
+                <button class="primary" onclick="saveMilestone()">追加</button>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                    <tr style="background: #f2f2f2;">
+                        <th style="border: 1px solid #ccc; padding: 6px;">名前</th>
+                        <th style="width: 120px; border: 1px solid #ccc; padding: 6px;">日付</th>
+                        <th style="width: 60px; border: 1px solid #ccc; padding: 6px; text-align: center;">完了</th>
+                        <th style="width: 60px; border: 1px solid #ccc; padding: 6px; text-align: center;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="milestone-list"></tbody>
+            </table>
+            <div class="modal-btns">
+                <button onclick="document.getElementById('milestone-modal').style.display='none'">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <!-- シフトモーダル -->
     <div id="shift-modal" class="modal-overlay">
         <div class="modal-content" style="width: 450px;">
@@ -478,6 +510,8 @@
         let tasks = JSON.parse(localStorage.getItem(getStorageKey())) || [
             { id: 1, title: 'プロジェクト開始', owner: '', start: getLocalDateStr(), end: getLocalDateStr(), est: 0, progress: 0, isGroup: true, hours: {}, memo: "" }
         ];
+        
+        let milestones = JSON.parse(localStorage.getItem(getStorageKey() + '-milestones')) || [];
         
         // Undo履歴
         const historyStack = [];
@@ -755,6 +789,140 @@
                     gRow.appendChild(c);
                 });
                 ganttBody.appendChild(gRow);
+            });
+
+            // --- マイルストーン表示（日付ヘッダーの直下に配置） ---
+            if (milestones.length > 0) {
+                // WBS側（左部）
+                const mHeaderWbs = document.createElement('div');
+                mHeaderWbs.className = 'row';
+                mHeaderWbs.style.background = '#e0f2fe';
+                mHeaderWbs.style.borderTop = '2px solid #0284c7';
+                mHeaderWbs.style.borderBottom = '2px solid #0284c7';
+                mHeaderWbs.style.minHeight = '28px';
+                mHeaderWbs.innerHTML = `
+                    <div class="cell col-no"></div>
+                    <div class="cell col-title" style="color: #0284c7; font-weight: bold; font-size: 11px;">📅 マイルストーン</div>
+                    <div class="cell col-owner"></div>
+                    <div class="cell col-date"></div>
+                    <div class="cell col-date"></div>
+                    <div class="cell col-h"></div>
+                    <div class="cell col-h"></div>
+                    <div class="cell col-h"></div>
+                    <div class="cell col-ratio"></div>
+                    <div class="cell col-progress"></div>
+                    <div class="cell col-op" style="border-right: 2px solid #0284c7 !important;"></div>
+                `;
+                if (wbsBody.firstChild) {
+                    wbsBody.insertBefore(mHeaderWbs, wbsBody.firstChild);
+                } else {
+                    wbsBody.appendChild(mHeaderWbs);
+                }
+
+                // ガントチャート側（右部）
+                const mHeaderGantt = document.createElement('div');
+                mHeaderGantt.className = 'row';
+                mHeaderGantt.style.background = '#e0f2fe';
+                mHeaderGantt.style.borderTop = '2px solid #0284c7';
+                mHeaderGantt.style.borderBottom = '2px solid #0284c7';
+                mHeaderGantt.style.minHeight = '28px';
+                
+                dateList.forEach(d => {
+                    const c = document.createElement('div');
+                    c.className = `cell day-cell ${d.w===6?'sat':''} ${d.w===0?'sun holiday':''} ${d.isToday?'is-today-col':''}`;
+                    
+                    // その日付に該当するマイルストーンを表示
+                    const dayMilestones = milestones.filter(m => m.date === d.str);
+                    if (dayMilestones.length > 0) {
+                        const ml = dayMilestones[0];
+                        c.style.background = '#0284c7';
+                        c.style.color = '#fff';
+                        c.style.fontWeight = 'bold';
+                        c.style.fontSize = '14px';
+                        c.innerText = ml.completed ? '✓' : '◆';
+                        c.title = dayMilestones.map(x => x.name).join(' / ');
+                    }
+                    mHeaderGantt.appendChild(c);
+                });
+                if (ganttBody.firstChild) {
+                    ganttBody.insertBefore(mHeaderGantt, ganttBody.firstChild);
+                } else {
+                    ganttBody.appendChild(mHeaderGantt);
+                }
+            }
+        }
+
+        // --- マイルストーン管理 ---
+        function addMilestone() {
+            document.getElementById('milestone-name').value = '';
+            document.getElementById('milestone-date').value = getLocalDateStr();
+            renderMilestoneList();
+            document.getElementById('milestone-modal').style.display = 'flex';
+        }
+
+        function saveMilestone() {
+            const name = document.getElementById('milestone-name').value.trim();
+            const date = document.getElementById('milestone-date').value;
+            
+            if (!name) {
+                alert('マイルストーン名を入力してください');
+                return;
+            }
+            if (!date) {
+                alert('日付を選択してください');
+                return;
+            }
+            
+            saveState();
+            milestones.push({
+                id: Date.now(),
+                name: name,
+                date: date,
+                completed: false
+            });
+            localStorage.setItem(getStorageKey() + '-milestones', JSON.stringify(milestones));
+            document.getElementById('milestone-name').value = '';
+            renderMilestoneList();
+            render();
+        }
+
+        function deleteMilestone(id) {
+            if (confirm('このマイルストーンを削除しますか？')) {
+                saveState();
+                milestones = milestones.filter(m => m.id !== id);
+                localStorage.setItem(getStorageKey() + '-milestones', JSON.stringify(milestones));
+                renderMilestoneList();
+                render();
+            }
+        }
+
+        function toggleMilestoneComplete(id) {
+            saveState();
+            const m = milestones.find(x => x.id === id);
+            if (m) {
+                m.completed = !m.completed;
+                localStorage.setItem(getStorageKey() + '-milestones', JSON.stringify(milestones));
+                renderMilestoneList();
+                render();
+            }
+        }
+
+        function renderMilestoneList() {
+            const tbody = document.getElementById('milestone-list');
+            tbody.innerHTML = '';
+            milestones.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(m => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="border: 1px solid #ccc; padding: 6px;">${m.name}</td>
+                    <td style="border: 1px solid #ccc; padding: 6px; text-align: center;">${m.date}</td>
+                    <td style="border: 1px solid #ccc; padding: 6px; text-align: center;">
+                        <input type="checkbox" ${m.completed ? 'checked' : ''} onchange="toggleMilestoneComplete(${m.id})">
+                    </td>
+                    <td style="border: 1px solid #ccc; padding: 6px; text-align: center;">
+                        <button style="padding: 2px 6px; font-size: 11px;" onclick="deleteMilestone(${m.id})">削除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
             });
         }
 
@@ -1268,7 +1436,7 @@
             });
             navigator.clipboard.writeText(txt).then(()=>alert("コピーしました"));
         }
-        function downloadJSON() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(tasks,null,2)],{type:'application/json'})); a.download='wbs_data.json'; a.click(); }
+        function downloadJSON() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({tasks, milestones},null,2)],{type:'application/json'})); a.download='wbs_data.json'; a.click(); }
         function downloadCSV() {
             let csv = "No,Task,Owner,Start,End,Est,Act,Progress,Memo\n";
             tasks.forEach(t => {
@@ -1278,7 +1446,19 @@
             const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bom, csv],{type:'text/csv'})); a.download='wbs.csv'; a.click();
         }
         function uploadJSON(e) {
-            const r = new FileReader(); r.onload = ev => { saveState(); tasks = JSON.parse(ev.target.result); render(); }; r.readAsText(e.target.files[0]);
+            const r = new FileReader(); 
+            r.onload = ev => { 
+                saveState(); 
+                const data = JSON.parse(ev.target.result);
+                if (data.tasks) tasks = data.tasks;
+                else tasks = data;
+                if (data.milestones) {
+                    milestones = data.milestones;
+                    localStorage.setItem(getStorageKey() + '-milestones', JSON.stringify(milestones));
+                }
+                render(); 
+            }; 
+            r.readAsText(e.target.files[0]);
         }
         
         // --- フィルタロジック (初期バージョン仕様) ---
