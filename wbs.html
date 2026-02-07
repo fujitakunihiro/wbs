@@ -16,7 +16,8 @@
             --today-line: #ff0000;  
             --row-h: 34px;
             --day-w: 55px; 
-            --wbs-w: 1200px; 
+            /* 幅を修正: 各列の合計(980+155=1135px)に合わせて余白と見切れを解消 */
+            --wbs-w: 1120px; /* $$fujita */
             
             /* ヒートマップ用色定義 */
             --overload-bg: #ffdddd; 
@@ -120,7 +121,7 @@
         .col-h { width: 75px; justify-content: center; padding-right: 2px; }
         .col-ratio { width: 55px; justify-content: center; font-size: 11px; }
         .col-progress { width: 75px; justify-content: center; }
-        .col-op { width: 220px; justify-content: flex-start; border-right: none !important; gap: 4px; padding: 0 8px; }
+        .col-op { width: 140px; justify-content: center; border-right: none !important; gap: 4px; padding: 0 4px; overflow: visible !important; } /* $$fujita */
 
         .day-cell { width: var(--day-w); justify-content: center; padding: 0 !important; position: relative; } 
         .is-today-h { background: var(--today-bg) !important; color: #d97706 !important; font-weight: bold; border-bottom: 1px solid #888 !important; }
@@ -168,6 +169,16 @@
         .icon-shift-left:hover { background: #a5f3fc; border-color: #0891b2; }
         .icon-shift-right { border-color: #06b6d4; background: #cffafe; font-size: 16px; color: #0891b2; padding: 0 6px; font-weight: 600; }
         .icon-shift-right:hover { background: #a5f3fc; border-color: #0891b2; }
+
+        .op-menu-wrap { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+        .op-menu-dropdown { position: absolute; top: 100%; right: 0; margin-top: 2px; background: #fff; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000; min-width: 180px; display: none; padding: 4px 0; }
+        .op-menu-dropdown.show { display: block; }
+        .op-menu-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px; white-space: nowrap; border: none; background: none; width: 100%; text-align: left; font-family: inherit; color: #333; }
+        .op-menu-item:hover { background: #f0f0f0; }
+        .op-menu-item .menu-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .op-menu-item .menu-icon svg { width: 14px; height: 14px; fill: currentColor; }
+        .icon-btn.icon-more { color: #666; }
+        .icon-btn.icon-more svg { width: 14px; height: 14px; fill: currentColor; }
 
         .tracking-active { background: #fff1f2 !important; }
 
@@ -528,6 +539,7 @@
         const ICON_COPY = `<svg viewBox="0 0 24 24"><path d="M16,1H4C2.9,1,2,1.9,2,3V17H4V3H16V1M19,5H8C6.9,5,6,5.9,6,7V21C6,22.1,6.9,23,8,23H19C20.1,23,21,22.1,21,21V7C21,5.9,20.1,5,19,5M19,21H8V7H19V21Z"/></svg>`;
         const ICON_SHIFT_LEFT = `⏪`;
         const ICON_SHIFT_RIGHT = `⏩`;
+        const ICON_ELLIPSIS = `<svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/></svg>`;
 
         // --- 祝日計算ロジック (簡易版) ---
         function getHolidayName(dateStr) {
@@ -745,12 +757,17 @@
                     <div class="cell col-ratio center">${t.est>0 ? Math.round((t.computedSum/t.est)*100) : 0}%</div>
                     <div class="cell col-progress">${t.isGroup ? t.progress+'%' : `<input type="number" min="0" max="100" value="${t.progress}" onchange="upd(${t.id},'progress',this.value)">%`}</div>
                     <div class="cell col-op">
-                        <div class="icon-btn" onclick="toggleGrp(${t.id})" title="グループ化切替">${ICON_GROUP}</div>
                         <div class="icon-btn icon-memo ${t.memo?'has-content':''}" onclick="openMemo(${t.id})" title="メモを開く">${ICON_MEMO}</div>
-                        <div class="icon-btn" onclick="copyTask(${t.id})" title="タスクを複製">${ICON_COPY}</div>
                         ${!t.isGroup ? (isTracking ? `<div class="icon-btn icon-timer stop" onclick="stopTracking()" title="計測を停止して工数を入力">${ICON_STOP}</div>` : `<div class="icon-btn icon-timer start" onclick="startTracking(${t.id})" title="計測を開始">${ICON_START}</div>`) : ''}
-                        ${!t.isGroup ? `<div class="icon-btn icon-shift-left" onclick="shiftTaskDays(${t.id}, -1)" title="開始日・期限を1営業日前へ">${ICON_SHIFT_LEFT}</div><div class="icon-btn icon-shift-right" onclick="shiftTaskDays(${t.id}, 1)" title="開始日・期限を1営業日後へ">${ICON_SHIFT_RIGHT}</div>` : ''}
                         <div class="icon-btn icon-delete" onclick="delT(${t.id})" title="削除">${ICON_DELETE}</div>
+                        <div class="op-menu-wrap">
+                            <div class="icon-btn icon-more" onclick="event.stopPropagation(); toggleOpMenu(${t.id}, event)" title="その他">${ICON_ELLIPSIS}</div>
+                            <div id="op-menu-${t.id}" class="op-menu-dropdown" onclick="event.stopPropagation()">
+                                <button type="button" class="op-menu-item" onclick="closeOpMenus(); toggleGrp(${t.id});"><span class="menu-icon">${ICON_GROUP}</span>グループ化切替</button>
+                                <button type="button" class="op-menu-item" onclick="closeOpMenus(); copyTask(${t.id});"><span class="menu-icon">${ICON_COPY}</span>タスクを複製</button>
+                                ${!t.isGroup ? `<button type="button" class="op-menu-item" onclick="closeOpMenus(); shiftTaskDays(${t.id}, -1);"><span class="menu-icon">${ICON_SHIFT_LEFT}</span>1営業日前へシフト</button><button type="button" class="op-menu-item" onclick="closeOpMenus(); shiftTaskDays(${t.id}, 1);"><span class="menu-icon">${ICON_SHIFT_RIGHT}</span>1営業日後へシフト</button>` : ''}
+                            </div>
+                        </div>
                     </div>
                 `;
                 wbsBody.appendChild(wRow);
@@ -1019,6 +1036,30 @@
                 render(); 
             } 
         }
+
+        function closeOpMenus() {
+            document.querySelectorAll('.op-menu-dropdown.show').forEach(m => {
+                m.classList.remove('show');
+                m.style.position = m.style.top = m.style.left = m.style.right = '';
+            });
+        }
+        function toggleOpMenu(taskId, ev) {
+            const menu = document.getElementById('op-menu-' + taskId);
+            if (!menu) return;
+            const isOpen = menu.classList.contains('show');
+            closeOpMenus();
+            if (!isOpen) {
+                if (ev && ev.currentTarget) {
+                    const rect = ev.currentTarget.getBoundingClientRect();
+                    menu.style.position = 'fixed';
+                    menu.style.top = (rect.bottom + 2) + 'px';
+                    menu.style.left = Math.max(4, rect.right - 180) + 'px';
+                    menu.style.right = 'auto';
+                }
+                menu.classList.add('show');
+            }
+        }
+        document.addEventListener('click', function() { closeOpMenus(); });
 
         // --- シフト機能 (改修版) ---
         function openShiftModal() { 
