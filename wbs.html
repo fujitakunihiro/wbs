@@ -142,6 +142,9 @@
             pointer-events: none;
             opacity: 0.6;
         }
+        .milestone-gantt-row .cell { border-bottom: none; }
+        .milestone-gantt-row { box-shadow: 0 1px 0 var(--border); }
+        .milestone-icon-img { width: 20px; height: 20px; object-fit: contain; display: block; }
 
         input { width: 100%; border: none; outline: none; background: transparent; font-size: 12px; font-family: inherit; }
         input[type="number"] { text-align: center; }
@@ -827,7 +830,7 @@
                     <div class="cell col-h"></div>
                     <div class="cell col-ratio"></div>
                     <div class="cell col-progress"></div>
-                    <div class="cell col-op" style="border-right: 2px solid #0284c7 !important;"></div>
+                    <div class="cell col-op"></div>
                 `;
                 // 先頭に挿入
                 if (wbsBody.firstChild) {
@@ -838,7 +841,7 @@
 
                 // ガントチャート側（右部）
                 const mHeaderGantt = document.createElement('div');
-                mHeaderGantt.className = 'row';
+                mHeaderGantt.className = 'row milestone-gantt-row';
                 mHeaderGantt.style.background = '#e0f2fe';
                 mHeaderGantt.style.borderTop = '1px solid #0284c7';
                 mHeaderGantt.style.minHeight = '28px';
@@ -846,6 +849,8 @@
                 mHeaderGantt.style.top = '34px'; // ヘッダーの高さ分
                 mHeaderGantt.style.zIndex = '38'; // ヘッダー(40)より下
                 mHeaderGantt.style.width = '100%';
+                mHeaderGantt.style.isolation = 'isolate';
+                mHeaderGantt.style.transform = 'translateZ(0)';
                 
                 dateList.forEach(d => {
                     const dayMilestones = milestones.filter(m => m.date === d.str);
@@ -857,8 +862,8 @@
                     
                     if (dayMilestones.length > 0) {
                         const ml = dayMilestones[0];
-                        // 背景色ではなく、マークの色で視認性を確保
-                        c.style.background = 'rgba(2, 132, 199, 0.1)'; // 薄い水色背景
+                        // 不透明背景にしてスクロール時の線の重なりを防ぐ
+                        c.style.background = '#e0f2fe';
                         c.style.color = '#f59e0b'; // 濃いオレンジ色（Amber-500）
                         c.style.fontWeight = 'bold';
                         c.style.fontSize = '16px';
