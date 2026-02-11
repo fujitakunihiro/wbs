@@ -26,29 +26,73 @@
             /* 祝日用 */
             --holiday-col: #ffebec;
             --holiday-text: #dc3545;
+
+            /* マイルストーン行の背景色（馴染む薄いブルーグレー） */
+            --milestone-bg: #f0f8ff;
         }
 
         * { box-sizing: border-box; }
         body { font-family: "Meiryo", "MS PGothic", sans-serif; margin: 15px; font-size: 12px; background: #f9f9f9; color: #333; overflow: hidden; }
         
-        .controls { margin-bottom: 10px; display: flex; gap: 8px; align-items: center; white-space: nowrap; flex-wrap: nowrap; }
-        button { padding: 5px 15px; cursor: pointer; border: 1px solid #999; background: #fff; border-radius: 2px; font-size: 12px; }
-        button.primary { background: var(--excel-blue); color: white; border: none; }
-        button:hover { background-color: #f0f0f0; }
-
-        .usage-guide {
-            margin-left: auto;
-            display: flex;
-            gap: 15px;
-            padding: 5px 12px;
-            background: #eee;
-            border-radius: 4px;
-            color: #555;
-            font-size: 11px;
+        /* コントロールバーの整理 */
+        .controls { 
+            margin-bottom: 10px; 
+            display: flex; 
+            gap: 8px; 
+            align-items: center; 
+            white-space: nowrap; 
+            flex-wrap: nowrap; 
+            position: relative;
+            background: #fff;
+            padding: 8px 12px;
             border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .guide-item { display: flex; align-items: center; gap: 4px; }
-        .guide-icon { font-size: 14px; }
+        .controls h2 { margin: 0 12px 0 0; font-size: 14px; color: var(--excel-blue); }
+        
+        button { padding: 5px 12px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 3px; font-size: 12px; color: #444; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
+        button:hover { background-color: #f5f5f5; border-color: #999; color: #222; }
+        button:disabled { opacity: 0.5; cursor: default; }
+
+        button.primary { background: var(--excel-blue); color: white; border-color: var(--excel-blue); }
+        button.primary:hover { background-color: #1e3a6e; border-color: #1e3a6e; color: #fff; }
+
+        /* アイコンボタン（保存・読込など） */
+        button.icon-only { padding: 5px 8px; font-size: 14px; }
+        
+        .separator { width: 1px; height: 18px; background: #ddd; margin: 0 4px; }
+        .spacer { margin-left: auto; }
+
+        /* ヘルプボタン用スタイル */
+        .help-btn {
+            width: 24px; height: 24px; padding: 0;
+            border-radius: 50%; border: 1px solid #999;
+            background: #fff; color: #555; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        .help-btn:hover { background: #eee; color: #333; border-color: #666; }
+
+        /* ヘルプポップアップ */
+        .help-popup {
+            position: absolute;
+            top: 45px; right: 0;
+            background: #fff;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 15px;
+            border-radius: 4px;
+            z-index: 2000;
+            display: none;
+            width: 280px;
+            text-align: left;
+        }
+        .help-popup.show { display: block; }
+        .help-popup h4 { margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; font-size: 13px; color: var(--excel-blue); }
+        .help-item { margin-bottom: 8px; font-size: 12px; display: flex; align-items: center; gap: 8px; color: #444; }
+        .help-icon { width: 20px; text-align: center; font-size: 14px; display: inline-block; }
 
         .main-container {
             display: flex;
@@ -121,7 +165,7 @@
         .col-h { width: 75px; justify-content: center; padding-right: 2px; }
         .col-ratio { width: 55px; justify-content: center; font-size: 11px; }
         .col-progress { width: 75px; justify-content: center; }
-        .col-op { width: 140px; justify-content: center; border-right: none !important; gap: 4px; padding: 0 4px; overflow: visible !important; } /* $$fujita */
+        .col-op { width: 140px; justify-content: center; border-right: 2px solid #444 !important; gap: 4px; padding: 0 4px; overflow: visible !important; }
 
         .day-cell { width: var(--day-w); justify-content: center; padding: 0 !important; position: relative; } 
         .is-today-h { background: var(--today-bg) !important; color: #d97706 !important; font-weight: bold; border-bottom: 1px solid #888 !important; }
@@ -275,29 +319,48 @@
 <body>
 
     <div class="controls">
-        <h2 style="margin: 0 10px 0 0; font-size: 14px;">工数管理</h2>
+        <h2>工数管理</h2>
+        
+        <!-- メイン操作 -->
         <button class="primary" onclick="addTask()">＋ タスク追加</button>
-        <button onclick="downloadJSON()">📥 保存</button>
-        <button onclick="document.getElementById('fileIn').click()">📤 読込</button>
-        <button onclick="undo()" id="btn-undo" disabled>🔙 元に戻す</button>
+        
+        <div class="separator"></div>
+        
+        <!-- 編集・操作 -->
         <button onclick="openShiftModal()">⏩ シフト</button>
         <button onclick="addMilestone()">🎯 マイルストーン</button>
-        <div style="width: 1px; height: 20px; background: #ccc; margin: 0 5px;"></div>
-        <button onclick="downloadCSV()">📊 CSV出力</button>
-        <button onclick="openReport()">📊 日報</button> 
+        <button onclick="undo()" id="btn-undo" disabled>🔙 元に戻す</button>
+
+        <div class="separator"></div>
+
+        <!-- 分析・出力 -->
         <button onclick="openAnalyze()">📈 分析</button>
+        <button onclick="openReport()">📊 日報</button>
+
+        <!-- 右寄せエリア (データ操作・ヘルプ) -->
+        <div class="spacer"></div>
+        <div style="display:flex; gap:6px; align-items:center;">
+            <span id="tracker-status" style="margin-right:15px; font-weight:bold; color:#dc2626;"></span>
+            
+            <button class="icon-only" onclick="downloadJSON()" title="保存 (JSON)">📥</button>
+            <button class="icon-only" onclick="document.getElementById('fileIn').click()" title="読込 (JSON)">📤</button>
+            <button class="icon-only" onclick="downloadCSV()" title="CSV出力" style="font-size:12px;">📊 CSV</button>
+            
+            <button class="help-btn" onclick="toggleHelp(event)" title="使い方">?</button>
+        </div>
+
         <input type="file" id="fileIn" style="display:none" accept=".json" onchange="uploadJSON(event)">
         
-        <span id="tracker-status" style="margin-left:20px; font-weight:bold; color:#dc2626;"></span>
-
-        <div class="usage-guide">
-            <div class="guide-item"><b>使い方:</b> 右側の日付列に日々の工数(h)を入力</div>
-            <div class="guide-item"><span class="guide-icon">📁</span>グループ化</div>
-            <div class="guide-item"><span class="guide-icon">📄</span>メモ</div>
-            <div class="guide-item"><span class="guide-icon">▶</span>タイマー</div>
-            <div class="guide-item"><span class="guide-icon">🔍</span>実績参照</div>
-            <div class="guide-item"><span class="guide-icon">🎯</span>マイルストーン</div>
-            <div class="guide-item" style="color:var(--overload-col); font-weight:bold;">■過負荷(>8h)</div>
+        <!-- ヘルプポップアップ -->
+        <div id="help-popup" class="help-popup" onclick="event.stopPropagation()">
+            <h4>使い方ガイド</h4>
+            <div class="help-item"><b>基本:</b> 右側の日付列に日々の工数(h)を入力</div>
+            <div class="help-item"><span class="help-icon">📁</span>グループ化 (タスクをまとめる)</div>
+            <div class="help-item"><span class="help-icon">📄</span>メモ (詳細情報を記録)</div>
+            <div class="help-item"><span class="help-icon">▶</span>タイマー (リアルタイム計測)</div>
+            <div class="help-item"><span class="help-icon">🔍</span>実績参照 (過去の似たタスクから見積)</div>
+            <div class="help-item"><span class="help-icon">🎯</span>マイルストーン (重要日程の管理)</div>
+            <div class="help-item" style="color:var(--overload-col); font-weight:bold;"><span class="help-icon">■</span>過負荷 (>8h/日 は赤く表示)</div>
         </div>
     </div>
 
@@ -808,29 +871,34 @@
 
             // --- マイルストーン表示（日付ヘッダーの直下に配置） ---
             if (milestones.length > 0) {
+                const milestoneBgColor = 'var(--milestone-bg)'; // CSS変数を使用
+                
                 // WBS側（左部）
                 const mHeaderWbs = document.createElement('div');
                 mHeaderWbs.className = 'row';
-                mHeaderWbs.style.background = '#e0f2fe';
+                // 親要素だけでなく子セルにも色を適用するため、背景色はCSS変数で定義し各セルに適用
+                mHeaderWbs.style.background = milestoneBgColor;
                 mHeaderWbs.style.borderTop = '1px solid #0284c7';
                 mHeaderWbs.style.minHeight = '28px';
                 mHeaderWbs.style.position = 'sticky';
-                // 左側はスクロール領域内でのトップ張り付きとするため 0 に修正
                 mHeaderWbs.style.top = '0';
                 mHeaderWbs.style.zIndex = '38'; 
                 
+                // セル自体が白背景(background: #fff)を持っているため、style属性で上書きする
+                const cellStyle = `background: ${milestoneBgColor};`;
+
                 mHeaderWbs.innerHTML = `
-                    <div class="cell col-no"></div>
-                    <div class="cell col-title" style="color: #0284c7; font-weight: bold; font-size: 11px; padding-left: 20px; display:flex; align-items:center;">📅 マイルストーン</div>
-                    <div class="cell col-owner"></div>
-                    <div class="cell col-date"></div>
-                    <div class="cell col-date"></div>
-                    <div class="cell col-h"></div>
-                    <div class="cell col-h"></div>
-                    <div class="cell col-h"></div>
-                    <div class="cell col-ratio"></div>
-                    <div class="cell col-progress"></div>
-                    <div class="cell col-op"></div>
+                    <div class="cell col-no" style="${cellStyle}"></div>
+                    <div class="cell col-title" style="${cellStyle} color: #0284c7; font-weight: bold; font-size: 11px; padding-left: 20px; display:flex; align-items:center;">📅 マイルストーン</div>
+                    <div class="cell col-owner" style="${cellStyle}"></div>
+                    <div class="cell col-date" style="${cellStyle}"></div>
+                    <div class="cell col-date" style="${cellStyle}"></div>
+                    <div class="cell col-h" style="${cellStyle}"></div>
+                    <div class="cell col-h" style="${cellStyle}"></div>
+                    <div class="cell col-h" style="${cellStyle}"></div>
+                    <div class="cell col-ratio" style="${cellStyle}"></div>
+                    <div class="cell col-progress" style="${cellStyle}"></div>
+                    <div class="cell col-op" style="${cellStyle}"></div>
                 `;
                 // 先頭に挿入
                 if (wbsBody.firstChild) {
@@ -842,7 +910,7 @@
                 // ガントチャート側（右部）
                 const mHeaderGantt = document.createElement('div');
                 mHeaderGantt.className = 'row milestone-gantt-row';
-                mHeaderGantt.style.background = '#e0f2fe';
+                mHeaderGantt.style.background = milestoneBgColor;
                 mHeaderGantt.style.borderTop = '1px solid #0284c7';
                 mHeaderGantt.style.minHeight = '28px';
                 mHeaderGantt.style.position = 'sticky';
@@ -860,10 +928,13 @@
                     c.className = `cell day-cell ${d.w===6?'sat':''} ${d.w===0?'sun holiday':''} ${isToday}`;
                     c.style.borderLeft = 'none'; 
                     
+                    // 基本背景色を適用（デフォルトの白を上書き）
+                    c.style.background = milestoneBgColor;
+
                     if (dayMilestones.length > 0) {
                         const ml = dayMilestones[0];
-                        // 不透明背景にしてスクロール時の線の重なりを防ぐ
-                        c.style.background = '#e0f2fe';
+                        // マイルストーンがある場合も背景色は維持しつつ、アイコンを表示
+                        c.style.background = milestoneBgColor;
                         c.style.color = '#f59e0b'; // 濃いオレンジ色（Amber-500）
                         c.style.fontWeight = 'bold';
                         c.style.fontSize = '16px';
@@ -872,7 +943,7 @@
                         c.title = dayMilestones.map(x => x.name).join(' / ');
                         c.style.cursor = 'help';
                     } else if (d.w === 0 || getHolidayName(d.str)) {
-                        c.style.background = '#ffebec';
+                        c.style.background = '#ffebec'; // 休日は休日色を優先
                         c.style.color = '#dc3545';
                     }
                     mHeaderGantt.appendChild(c);
@@ -1063,6 +1134,17 @@
             }
         }
         document.addEventListener('click', function() { closeOpMenus(); });
+
+        // --- ヘルプ機能 ---
+        function toggleHelp(e) {
+            e.stopPropagation();
+            const p = document.getElementById('help-popup');
+            p.classList.toggle('show');
+        }
+        document.addEventListener('click', function(e) {
+            const p = document.getElementById('help-popup');
+            if(p && p.classList.contains('show')) p.classList.remove('show');
+        });
 
         // --- シフト機能 (改修版) ---
         function openShiftModal() { 
