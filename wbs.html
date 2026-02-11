@@ -153,7 +153,7 @@
         }
 
         .header .col-owner, 
-        .header .col-date,
+        .header .col-date, 
         .header .col-progress { overflow: visible !important; position: relative; } 
 
         /* 列幅の定義 */
@@ -212,6 +212,8 @@
         .icon-timer.stop svg { fill: #dc2626; }
         .icon-memo.has-content { border-color: #2f5597; background: #eaf4ff; }
         .icon-memo.has-content svg { fill: #2f5597; }
+        .icon-risk.has-risk { border-color: #dc2626; background: #fff1f2; }
+        .icon-risk.has-risk svg { fill: #dc2626; }
         .icon-shift-left { border-color: #06b6d4; background: #cffafe; font-size: 16px; color: #0891b2; padding: 0 6px; font-weight: 600; }
         .icon-shift-left:hover { background: #a5f3fc; border-color: #0891b2; }
         .icon-shift-right { border-color: #06b6d4; background: #cffafe; font-size: 16px; color: #0891b2; padding: 0 6px; font-weight: 600; }
@@ -314,6 +316,41 @@
         .settings-row label { width: 120px; text-align: right; font-weight: bold; }
         .settings-row input, .settings-row select { border: 1px solid #ccc; padding: 4px; border-radius: 3px; width: 200px; background: #fff; }
 
+        /* リスク管理用 */
+        .risk-list-container { max-height: 350px; overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; padding: 8px; margin-bottom: 10px; }
+        .risk-item { 
+            border-bottom: 1px solid #eee; padding: 6px 0; 
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .risk-item:last-child { border-bottom: none; }
+        
+        .risk-row-main {
+            display: flex; align-items: center; gap: 8px; width: 100%;
+        }
+        .risk-row-main input[type="text"] {
+            flex-grow: 1; border: 1px solid transparent; border-radius: 3px; padding: 4px;
+            background: transparent; transition: all 0.2s; cursor: pointer; text-align: left;
+        }
+        .risk-row-main input[type="text"]:focus,
+        .risk-row-main input[type="text"]:hover {
+            border-color: #ccc; background: #fff; cursor: text;
+        }
+        
+        .risk-mitigation-box {
+            margin-left: 24px; padding: 4px 8px;
+            background: #f9f9f9; border-radius: 4px; border: 1px solid #eee;
+            display: none; align-items: center; gap: 6px;
+        }
+        .risk-mitigation-box.active { display: flex; }
+        .risk-mitigation-box input {
+            border: 1px solid #ccc; padding: 4px; border-radius: 3px;
+            flex-grow: 1; text-align: left; background: #fff;
+        }
+        .risk-label { font-size: 11px; color: #555; font-weight: bold; white-space: nowrap; }
+
+        .add-risk-row { display: flex; gap: 8px; margin-top: 10px; }
+        .add-risk-row input { border: 1px solid #ccc; padding: 5px; border-radius: 3px; flex-grow: 1; text-align: left; }
+
     </style>
 </head>
 <body>
@@ -357,6 +394,7 @@
             <div class="help-item"><b>基本:</b> 右側の日付列に日々の工数(h)を入力</div>
             <div class="help-item"><span class="help-icon">📁</span>グループ化 (タスクをまとめる)</div>
             <div class="help-item"><span class="help-icon">📄</span>メモ (詳細情報を記録)</div>
+            <div class="help-item"><span class="help-icon">⚠</span>リスク (懸念事項と予防策)</div>
             <div class="help-item"><span class="help-icon">▶</span>タイマー (リアルタイム計測)</div>
             <div class="help-item"><span class="help-icon">🔍</span>実績参照 (過去の似たタスクから見積)</div>
             <div class="help-item"><span class="help-icon">🎯</span>マイルストーン (重要日程の管理)</div>
@@ -408,6 +446,26 @@
             <div class="modal-btns">
                 <button onclick="closeMemo()">キャンセル</button>
                 <button id="btn-save-memo" class="primary" onclick="saveMemo()">保存する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- リスク管理モーダル -->
+    <div id="risk-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 550px;">
+            <h3>リスク管理</h3>
+            <div style="font-size:11px; color:#555; margin-bottom:8px;">
+                ※ リスク項目名の編集・削除はマスタ(全体)に反映されます。<br>
+                ※ チェックを入れると予防策を入力できます。
+            </div>
+            <div class="risk-list-container" id="risk-list"></div>
+            <div class="add-risk-row">
+                <input type="text" id="new-risk-input" placeholder="新しいリスクを追加...">
+                <button class="primary" onclick="addCustomRisk()">追加</button>
+            </div>
+            <div class="modal-btns" style="margin-top: 15px;">
+                <button onclick="document.getElementById('risk-modal').style.display='none'">キャンセル</button>
+                <button class="primary" onclick="saveTaskRisks()">保存する</button>
             </div>
         </div>
     </div>
@@ -581,17 +639,27 @@
         function getStorageKey() { return `workload-mgmt-evo-v6-final`; }
         
         let tasks = JSON.parse(localStorage.getItem(getStorageKey())) || [
-            { id: 1, title: 'プロジェクト開始', owner: '', start: getLocalDateStr(), end: getLocalDateStr(), est: 0, progress: 0, isGroup: true, hours: {}, memo: "" }
+            { id: 1, title: 'プロジェクト開始', owner: '', start: getLocalDateStr(), end: getLocalDateStr(), est: 0, progress: 0, isGroup: true, hours: {}, memo: "", risks: [] }
         ];
         
         let milestones = JSON.parse(localStorage.getItem(getStorageKey() + '-milestones')) || [];
         
+        // リスクマスタリスト（デフォルト値 + ユーザー追加）
+        let masterRisks = JSON.parse(localStorage.getItem(getStorageKey() + '-master-risks')) || [
+            "仕様変更の可能性あり",
+            "技術的な難易度が高い",
+            "リソース不足の懸念",
+            "外部依存の遅延リスク",
+            "見積もりの不確実性が高い"
+        ];
+
         // Undo履歴
         const historyStack = [];
         const MAX_HISTORY = 20;
 
         let trackingId = null, trackingStartTime = null, timerInterval = null;
         let dragIdx = null, currentMemoId = null, currentRefTaskId = null, currentRefResults = [];
+        let activeRiskTaskId = null; // リスク編集中のタスクID
         let visibleOwners = null, visibleProgress = null, visibleStartDate = null; 
         let dailyLoadMap = {};
         const OVERLOAD_LIMIT = 8; 
@@ -609,6 +677,7 @@
         const ICON_SHIFT_LEFT = `⏪`;
         const ICON_SHIFT_RIGHT = `⏩`;
         const ICON_ELLIPSIS = `<svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="18" r="1.5" fill="currentColor"/></svg>`;
+        const ICON_RISK = `<svg viewBox="0 0 24 24"><path d="M1,21H23L12,2L1,21M13,18H11V16H13V18M13,14H11V10H13V14Z"/></svg>`;
 
         // --- 祝日計算ロジック (簡易版) ---
         function getHolidayName(dateStr) {
@@ -696,6 +765,13 @@
         function updateLogic() {
             let major = 0, minor = 0;
             tasks.forEach(t => {
+                // risks配列がない古いデータ形式への対応 & データ構造マイグレーション
+                if (!t.risks) t.risks = [];
+                // 文字列配列だった場合、オブジェクト配列に変換
+                if (t.risks.length > 0 && typeof t.risks[0] === 'string') {
+                    t.risks = t.risks.map(r => ({ title: r, mitigation: "" }));
+                }
+
                 if (t.isGroup) { major++; minor = 0; t.no = major.toString(); }
                 else { minor++; t.no = major === 0 ? minor.toString() : `${major}.${minor}`; }
             });
@@ -843,14 +919,17 @@
                     <div class="cell col-progress">${t.isGroup ? t.progress+'%' : `<input type="number" min="0" max="100" value="${t.progress}" onchange="upd(${t.id},'progress',this.value)">%`}</div>
                     <div class="cell col-op">
                         <div class="icon-btn icon-memo ${t.memo?'has-content':''}" onclick="openMemo(${t.id})" title="メモを開く">${ICON_MEMO}</div>
+                        <div class="icon-btn icon-risk ${t.risks && t.risks.length > 0 ? 'has-risk' : ''}" onclick="openRiskModal(${t.id})" title="リスク管理">${ICON_RISK}</div>
                         ${!t.isGroup ? (isTracking ? `<div class="icon-btn icon-timer stop" onclick="stopTracking()" title="計測を停止して工数を入力">${ICON_STOP}</div>` : `<div class="icon-btn icon-timer start" onclick="startTracking(${t.id})" title="計測を開始">${ICON_START}</div>`) : ''}
-                        <div class="icon-btn icon-delete" onclick="delT(${t.id})" title="削除">${ICON_DELETE}</div>
+                        
                         <div class="op-menu-wrap">
                             <div id="btn-more-${t.id}" class="icon-btn icon-more" onclick="event.stopPropagation(); toggleOpMenu(${t.id}, event)" title="その他">${ICON_ELLIPSIS}</div>
                             <div id="op-menu-${t.id}" class="op-menu-dropdown" onmouseleave="closeOpMenus()" onclick="event.stopPropagation()">
                                 <button type="button" class="op-menu-item" onclick="toggleGrp(${t.id});"><span class="menu-icon">${ICON_GROUP}</span>グループ化切替</button>
                                 <button type="button" class="op-menu-item" onclick="copyTask(${t.id});"><span class="menu-icon">${ICON_COPY}</span>タスクを複製</button>
                                 ${!t.isGroup ? `<button type="button" class="op-menu-item" onclick="shiftTaskDays(${t.id}, -1);"><span class="menu-icon">${ICON_SHIFT_LEFT}</span>1営業日前へシフト</button><button type="button" class="op-menu-item" onclick="shiftTaskDays(${t.id}, 1);"><span class="menu-icon">${ICON_SHIFT_RIGHT}</span>1営業日後へシフト</button>` : ''}
+                                <div style="border-top:1px solid #eee; margin:2px 0;"></div>
+                                <button type="button" class="op-menu-item" style="color:#dc2626;" onclick="delT(${t.id});"><span class="menu-icon">${ICON_DELETE}</span>削除</button>
                             </div>
                         </div>
                     </div>
@@ -1109,7 +1188,7 @@
         function addTask() { 
             saveState();
             const today = getLocalDateStr(); 
-            tasks.push({ id: Date.now(), title: '新規タスク', owner: '', start: today, end: today, est: 0.0, progress: 0, isGroup: false, hours: {}, memo: "" }); 
+            tasks.push({ id: Date.now(), title: '新規タスク', owner: '', start: today, end: today, est: 0.0, progress: 0, isGroup: false, hours: {}, memo: "", risks: [] }); 
             render(); 
         }
         function copyTask(id) {
@@ -1121,6 +1200,7 @@
                 newT.title += " (コピー)";
                 newT.hours = {}; 
                 newT.progress = 0;
+                if(!newT.risks) newT.risks = [];
                 const idx = tasks.findIndex(x => x.id === id);
                 tasks.splice(idx + 1, 0, newT);
                 render();
@@ -1286,6 +1366,199 @@
         function saveMemo() {
             if(currentMemoId) { saveState(); const t = tasks.find(x => x.id === currentMemoId); t.memo = document.getElementById('memo-text').value; render(); }
             closeMemo();
+        }
+
+        // --- リスク管理 ---
+        function openRiskModal(taskId) {
+            activeRiskTaskId = taskId;
+            const task = tasks.find(t => t.id === taskId);
+            if(!task) return;
+            
+            // タスクのリスク配列を初期化（なければ空配列）
+            // オブジェクト配列 { title: string, mitigation: string }
+            if(!task.risks) task.risks = [];
+
+            const listContainer = document.getElementById('risk-list');
+            listContainer.innerHTML = '';
+
+            // マスタとタスクのデータをマージして表示用リストを作成
+            // マスタにあるものはマスタから、タスク独自のもの（マスタ削除後など）も表示する
+            const displayRisks = [...masterRisks];
+            
+            // タスクにあってマスタにないものを追加（重複チェック）
+            task.risks.forEach(r => {
+                if(!displayRisks.includes(r.title)) {
+                    displayRisks.push(r.title);
+                }
+            });
+
+            displayRisks.forEach(riskTitle => {
+                // タスクがこのリスクを持っているかチェック
+                const existing = task.risks.find(r => r.title === riskTitle);
+                const isChecked = !!existing;
+                const mitigationValue = existing ? existing.mitigation : "";
+
+                const item = document.createElement('div');
+                item.className = 'risk-item';
+                
+                // 上段：チェック、リスク名、削除ボタン
+                const mainRow = document.createElement('div');
+                mainRow.className = 'risk-row-main';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'risk-chk';
+                checkbox.value = riskTitle;
+                checkbox.checked = isChecked;
+                checkbox.onchange = function() {
+                    toggleRiskMitigation(this);
+                };
+                
+                // リスク名編集用インプット
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.value = riskTitle;
+                nameInput.title = "編集するとマスタも更新されます";
+                nameInput.onchange = function() {
+                    updateMasterRiskName(riskTitle, this.value);
+                };
+
+                const delBtn = document.createElement('button');
+                delBtn.innerText = '🗑';
+                delBtn.style.padding = '2px 6px';
+                delBtn.title = "リストから削除";
+                delBtn.onclick = function() {
+                    deleteMasterRisk(riskTitle);
+                };
+
+                mainRow.appendChild(checkbox);
+                mainRow.appendChild(nameInput);
+                mainRow.appendChild(delBtn);
+
+                // 下段：予防策入力
+                const mitigationBox = document.createElement('div');
+                mitigationBox.className = 'risk-mitigation-box ' + (isChecked ? 'active' : '');
+                
+                const mitLabel = document.createElement('span');
+                mitLabel.className = 'risk-label';
+                mitLabel.innerText = '↳ 予防策:';
+                
+                const mitInput = document.createElement('input');
+                mitInput.type = 'text';
+                mitInput.className = 'risk-mitigation-input';
+                mitInput.placeholder = '対策を入力...';
+                mitInput.value = mitigationValue;
+
+                mitigationBox.appendChild(mitLabel);
+                mitigationBox.appendChild(mitInput);
+
+                item.appendChild(mainRow);
+                item.appendChild(mitigationBox);
+                listContainer.appendChild(item);
+            });
+
+            document.getElementById('new-risk-input').value = '';
+            document.getElementById('risk-modal').style.display = 'flex';
+        }
+
+        function toggleRiskMitigation(checkbox) {
+            const item = checkbox.closest('.risk-item');
+            const mitBox = item.querySelector('.risk-mitigation-box');
+            if(checkbox.checked) {
+                mitBox.classList.add('active');
+            } else {
+                mitBox.classList.remove('active');
+            }
+        }
+
+        function addCustomRisk() {
+            const input = document.getElementById('new-risk-input');
+            const newRisk = input.value.trim();
+            if(!newRisk) return;
+
+            if(!masterRisks.includes(newRisk)) {
+                masterRisks.push(newRisk);
+                localStorage.setItem(getStorageKey() + '-master-risks', JSON.stringify(masterRisks));
+            }
+            
+            // 現在のUI状態をタスクデータに一時反映してから再描画
+            tempSaveCurrentRiskState();
+            openRiskModal(activeRiskTaskId);
+        }
+
+        function updateMasterRiskName(oldName, newName) {
+            newName = newName.trim();
+            if(!newName || oldName === newName) return;
+
+            // マスタ更新
+            const idx = masterRisks.indexOf(oldName);
+            if(idx !== -1) {
+                masterRisks[idx] = newName;
+                localStorage.setItem(getStorageKey() + '-master-risks', JSON.stringify(masterRisks));
+            }
+
+            // タスクデータ内のリスク名も更新する必要があるか？
+            // 既存タスクのデータ整合性を保つため、全タスクを走査して更新する
+            saveState(); // Undo用
+            tasks.forEach(t => {
+                if(t.risks) {
+                    t.risks.forEach(r => {
+                        if(r.title === oldName) {
+                            r.title = newName;
+                        }
+                    });
+                }
+            });
+            localStorage.setItem(getStorageKey(), JSON.stringify(tasks)); // 即保存
+
+            // UI再描画
+            tempSaveCurrentRiskState(); // 編集中の他の項目を維持
+            openRiskModal(activeRiskTaskId);
+        }
+
+        function deleteMasterRisk(name) {
+            if(!confirm(`「${name}」をリストから削除しますか？\n（使用中のタスクからは削除されません）`)) return;
+
+            masterRisks = masterRisks.filter(r => r !== name);
+            localStorage.setItem(getStorageKey() + '-master-risks', JSON.stringify(masterRisks));
+            
+            tempSaveCurrentRiskState();
+            openRiskModal(activeRiskTaskId);
+        }
+
+        // モーダルを開いたまま再描画するために、現在の入力状態をタスクオブジェクトに退避させる関数
+        function tempSaveCurrentRiskState() {
+            if(!activeRiskTaskId) return;
+            const task = tasks.find(t => t.id === activeRiskTaskId);
+            if(!task) return;
+
+            const items = document.querySelectorAll('.risk-item');
+            const newRisks = [];
+            
+            items.forEach(item => {
+                const checkbox = item.querySelector('.risk-chk');
+                if(checkbox.checked) {
+                    // チェックされている項目だけを拾う
+                    // リスク名は checkbox.value (元々のリスク名) を使う
+                    const riskName = checkbox.value; 
+                    const mitInput = item.querySelector('.risk-mitigation-input');
+                    newRisks.push({
+                        title: riskName,
+                        mitigation: mitInput.value
+                    });
+                }
+            });
+            task.risks = newRisks;
+        }
+
+        function saveTaskRisks() {
+            if(!activeRiskTaskId) return;
+            // 最終的な保存処理
+            tempSaveCurrentRiskState(); // 現在のDOM状態を反映
+            saveState(); // Undo履歴に追加
+            render();
+            document.getElementById('risk-modal').style.display = 'none';
+            activeRiskTaskId = null;
         }
 
         // --- 実績参照 ---
