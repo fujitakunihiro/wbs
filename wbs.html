@@ -1283,12 +1283,21 @@
             const menu = document.getElementById('op-menu-' + taskId);
             const btn = document.getElementById('btn-more-' + taskId);
             if (menu && btn) {
+                menu.classList.add('show');
                 const rect = btn.getBoundingClientRect();
+                const menuHeight = menu.offsetHeight;
+                const windowHeight = window.innerHeight;
+
+                if (rect.bottom + menuHeight + 5 > windowHeight) {
+                    menu.style.top = (rect.top - menuHeight - 2) + 'px';
+                } else {
+                    menu.style.top = (rect.bottom + 2) + 'px';
+                }
+
                 menu.style.position = 'fixed';
-                menu.style.top = (rect.bottom + 2) + 'px';
                 menu.style.left = Math.max(4, rect.right - 180) + 'px';
                 menu.style.right = 'auto';
-                menu.classList.add('show');
+                
                 activeMenuTaskId = taskId;
             }
         }
