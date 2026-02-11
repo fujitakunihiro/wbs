@@ -595,6 +595,9 @@
         let visibleOwners = null, visibleProgress = null, visibleStartDate = null; 
         let dailyLoadMap = {};
         const OVERLOAD_LIMIT = 8; 
+        
+        // メニュー状態管理用変数
+        let activeMenuTaskId = null;
 
         // アイコン定義
         const ICON_GROUP = `<svg viewBox="0 0 24 24"><path d="M20,18H4V8H20M20,6H12L10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6Z"/></svg>`;
@@ -792,8 +795,24 @@
                     if (f !== 'end' || !val) return "";
                     if (Number(t.progress) >= 100) return "";
                     if (val <= todayStr) return "status-red";
-                    const diff = Math.ceil((new Date(val) - new Date(todayStr))/(86400000));
-                    return diff <= 3 ? "status-yellow" : "";
+                    
+                    // 3営業日以内判定
+                    let bDays = 0;
+                    let checkDate = new Date(todayStr);
+                    checkDate.setDate(checkDate.getDate() + 1);
+                    const targetDate = new Date(val);
+                    
+                    const simpleDiff = (targetDate - new Date(todayStr)) / 86400000;
+                    if(simpleDiff > 14) return "";
+
+                    while (checkDate <= targetDate) {
+                        if (isBusinessDay(checkDate)) {
+                            bDays++;
+                        }
+                        if (bDays > 3) return ""; 
+                        checkDate.setDate(checkDate.getDate() + 1);
+                    }
+                    return "status-yellow";
                 };
 
                 const wRow = document.createElement('div');
@@ -827,11 +846,11 @@
                         ${!t.isGroup ? (isTracking ? `<div class="icon-btn icon-timer stop" onclick="stopTracking()" title="計測を停止して工数を入力">${ICON_STOP}</div>` : `<div class="icon-btn icon-timer start" onclick="startTracking(${t.id})" title="計測を開始">${ICON_START}</div>`) : ''}
                         <div class="icon-btn icon-delete" onclick="delT(${t.id})" title="削除">${ICON_DELETE}</div>
                         <div class="op-menu-wrap">
-                            <div class="icon-btn icon-more" onclick="event.stopPropagation(); toggleOpMenu(${t.id}, event)" title="その他">${ICON_ELLIPSIS}</div>
-                            <div id="op-menu-${t.id}" class="op-menu-dropdown" onclick="event.stopPropagation()">
-                                <button type="button" class="op-menu-item" onclick="closeOpMenus(); toggleGrp(${t.id});"><span class="menu-icon">${ICON_GROUP}</span>グループ化切替</button>
-                                <button type="button" class="op-menu-item" onclick="closeOpMenus(); copyTask(${t.id});"><span class="menu-icon">${ICON_COPY}</span>タスクを複製</button>
-                                ${!t.isGroup ? `<button type="button" class="op-menu-item" onclick="closeOpMenus(); shiftTaskDays(${t.id}, -1);"><span class="menu-icon">${ICON_SHIFT_LEFT}</span>1営業日前へシフト</button><button type="button" class="op-menu-item" onclick="closeOpMenus(); shiftTaskDays(${t.id}, 1);"><span class="menu-icon">${ICON_SHIFT_RIGHT}</span>1営業日後へシフト</button>` : ''}
+                            <div id="btn-more-${t.id}" class="icon-btn icon-more" onclick="event.stopPropagation(); toggleOpMenu(${t.id}, event)" title="その他">${ICON_ELLIPSIS}</div>
+                            <div id="op-menu-${t.id}" class="op-menu-dropdown" onmouseleave="closeOpMenus()" onclick="event.stopPropagation()">
+                                <button type="button" class="op-menu-item" onclick="toggleGrp(${t.id});"><span class="menu-icon">${ICON_GROUP}</span>グループ化切替</button>
+                                <button type="button" class="op-menu-item" onclick="copyTask(${t.id});"><span class="menu-icon">${ICON_COPY}</span>タスクを複製</button>
+                                ${!t.isGroup ? `<button type="button" class="op-menu-item" onclick="shiftTaskDays(${t.id}, -1);"><span class="menu-icon">${ICON_SHIFT_LEFT}</span>1営業日前へシフト</button><button type="button" class="op-menu-item" onclick="shiftTaskDays(${t.id}, 1);"><span class="menu-icon">${ICON_SHIFT_RIGHT}</span>1営業日後へシフト</button>` : ''}
                             </div>
                         </div>
                     </div>
@@ -953,6 +972,11 @@
                 } else {
                     ganttBody.appendChild(mHeaderGantt);
                 }
+            }
+            
+            // 再レンダリング後、メニューが開いていた場合は再表示する
+            if (activeMenuTaskId) {
+                openOpMenu(activeMenuTaskId);
             }
         }
 
@@ -1112,27 +1136,37 @@
         }
 
         function closeOpMenus() {
+            activeMenuTaskId = null;
             document.querySelectorAll('.op-menu-dropdown.show').forEach(m => {
                 m.classList.remove('show');
                 m.style.position = m.style.top = m.style.left = m.style.right = '';
             });
         }
-        function toggleOpMenu(taskId, ev) {
+        
+        function openOpMenu(taskId) {
             const menu = document.getElementById('op-menu-' + taskId);
-            if (!menu) return;
-            const isOpen = menu.classList.contains('show');
-            closeOpMenus();
-            if (!isOpen) {
-                if (ev && ev.currentTarget) {
-                    const rect = ev.currentTarget.getBoundingClientRect();
-                    menu.style.position = 'fixed';
-                    menu.style.top = (rect.bottom + 2) + 'px';
-                    menu.style.left = Math.max(4, rect.right - 180) + 'px';
-                    menu.style.right = 'auto';
-                }
+            const btn = document.getElementById('btn-more-' + taskId);
+            if (menu && btn) {
+                const rect = btn.getBoundingClientRect();
+                menu.style.position = 'fixed';
+                menu.style.top = (rect.bottom + 2) + 'px';
+                menu.style.left = Math.max(4, rect.right - 180) + 'px';
+                menu.style.right = 'auto';
                 menu.classList.add('show');
+                activeMenuTaskId = taskId;
             }
         }
+
+        function toggleOpMenu(taskId, ev) {
+            ev.stopPropagation();
+            if (activeMenuTaskId === taskId) {
+                closeOpMenus();
+            } else {
+                closeOpMenus();
+                openOpMenu(taskId);
+            }
+        }
+        
         document.addEventListener('click', function() { closeOpMenus(); });
 
         // --- ヘルプ機能 ---
