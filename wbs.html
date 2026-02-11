@@ -317,7 +317,12 @@
         .settings-row input, .settings-row select { border: 1px solid #ccc; padding: 4px; border-radius: 3px; width: 200px; background: #fff; }
 
         /* リスク管理用 */
-        .risk-list-container { max-height: 350px; overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; padding: 8px; margin-bottom: 10px; }
+        .risk-list-container { max-height: 400px; overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; padding: 8px; margin-bottom: 10px; }
+        .risk-category { margin-bottom: 15px; }
+        .risk-category-header { font-weight: bold; font-size: 13px; color: var(--excel-blue); border-bottom: 1px solid #ddd; padding-bottom: 3px; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }
+        .risk-category-header .edit-cat-btn { cursor: pointer; color: #888; font-size: 12px; }
+        .risk-category-header .edit-cat-btn:hover { color: #2f5597; }
+        
         .risk-item { 
             border-bottom: 1px solid #eee; padding: 6px 0; 
             display: flex; flex-direction: column; gap: 4px;
@@ -346,10 +351,29 @@
             border: 1px solid #ccc; padding: 4px; border-radius: 3px;
             flex-grow: 1; text-align: left; background: #fff;
         }
+        .risk-history-btn {
+            background: #eaf4ff; border: 1px solid #b3d7ff; color: #2f5597;
+            border-radius: 3px; cursor: pointer; font-size: 14px; padding: 2px 6px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .risk-history-btn:hover { background: #d0e7ff; }
         .risk-label { font-size: 11px; color: #555; font-weight: bold; white-space: nowrap; }
 
-        .add-risk-row { display: flex; gap: 8px; margin-top: 10px; }
+        .add-risk-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
         .add-risk-row input { border: 1px solid #ccc; padding: 5px; border-radius: 3px; flex-grow: 1; text-align: left; }
+        .add-risk-row input[list] { width: 140px; flex-grow: 0; }
+
+        /* 履歴選択ポップアップ */
+        .history-popup {
+            position: absolute; background: #fff; border: 1px solid #999; box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+            z-index: 3000; max-height: 200px; overflow-y: auto; min-width: 250px; padding: 5px 0; border-radius: 3px;
+            display: none; text-align: left;
+        }
+        .history-item {
+            padding: 6px 12px; cursor: pointer; font-size: 12px; border-bottom: 1px solid #eee;
+        }
+        .history-item:hover { background: #f0f8ff; }
+        .history-item:last-child { border-bottom: none; }
 
     </style>
 </head>
@@ -452,14 +476,23 @@
 
     <!-- リスク管理モーダル -->
     <div id="risk-modal" class="modal-overlay">
-        <div class="modal-content" style="width: 550px;">
+        <div class="modal-content" style="width: 600px;">
             <h3>リスク管理</h3>
             <div style="font-size:11px; color:#555; margin-bottom:8px;">
-                ※ リスク項目名の編集・削除はマスタ(全体)に反映されます。<br>
-                ※ チェックを入れると予防策を入力できます。
+                ※ リスク項目のチェックで予防策を入力可能。<br>
+                ※ 予防策欄の横の時計アイコンで、過去の入力履歴を参照できます。
             </div>
             <div class="risk-list-container" id="risk-list"></div>
             <div class="add-risk-row">
+                <input list="category-list" id="new-risk-category" placeholder="カテゴリ選択/入力...">
+                <datalist id="category-list">
+                    <option value="要件・仕様">
+                    <option value="技術・開発">
+                    <option value="リソース・体制">
+                    <option value="外部要因">
+                    <option value="スケジュール">
+                    <option value="その他">
+                </datalist>
                 <input type="text" id="new-risk-input" placeholder="新しいリスクを追加...">
                 <button class="primary" onclick="addCustomRisk()">追加</button>
             </div>
@@ -468,6 +501,7 @@
                 <button class="primary" onclick="saveTaskRisks()">保存する</button>
             </div>
         </div>
+        <div id="history-popup" class="history-popup"></div>
     </div>
 
     <!-- 実績参照用モーダル -->
@@ -644,14 +678,36 @@
         
         let milestones = JSON.parse(localStorage.getItem(getStorageKey() + '-milestones')) || [];
         
-        // リスクマスタリスト（デフォルト値 + ユーザー追加）
-        let masterRisks = JSON.parse(localStorage.getItem(getStorageKey() + '-master-risks')) || [
-            "仕様変更の可能性あり",
-            "技術的な難易度が高い",
-            "リソース不足の懸念",
-            "外部依存の遅延リスク",
-            "見積もりの不確実性が高い"
-        ];
+        // リスクマスタリスト（カテゴリ対応版）
+        // マイグレーション用ロジック：古い形式(文字列配列)なら変換する
+        let loadedRisks = JSON.parse(localStorage.getItem(getStorageKey() + '-master-risks'));
+        let masterRisks = [];
+        
+        if (!loadedRisks) {
+            // カテゴリごとのプリセットを充実させる
+            masterRisks = [
+                { category: "要件・仕様", title: "仕様変更の可能性が高い" },
+                { category: "要件・仕様", title: "要件が未確定・曖昧" },
+                { category: "要件・仕様", title: "ステークホルダー間の合意形成に時間がかかる" },
+                { category: "技術・開発", title: "技術的な難易度が高い" },
+                { category: "技術・開発", title: "未経験の技術・ツールを採用" },
+                { category: "技術・開発", title: "既存システムとの連携に懸念あり" },
+                { category: "技術・開発", title: "開発環境・検証環境の構築に手間取る" },
+                { category: "リソース・体制", title: "リソース（要員）不足の懸念" },
+                { category: "リソース・体制", title: "キーマン（有識者）の稼働確保が困難" },
+                { category: "リソース・体制", title: "メンバーのスキル不足" },
+                { category: "外部要因", title: "外部連携システムの開発遅延" },
+                { category: "外部要因", title: "外部ベンダーの納品遅延" },
+                { category: "外部要因", title: "API仕様の変更・不具合" },
+                { category: "スケジュール", title: "見積もりの不確実性が高い" },
+                { category: "スケジュール", title: "マイルストーン設定が厳しい" }
+            ];
+        } else if (loadedRisks.length > 0 && typeof loadedRisks[0] === 'string') {
+            // 旧形式からの移行
+            masterRisks = loadedRisks.map(r => ({ category: "一般", title: r }));
+        } else {
+            masterRisks = loadedRisks;
+        }
 
         // Undo履歴
         const historyStack = [];
@@ -1247,7 +1303,10 @@
             }
         }
         
-        document.addEventListener('click', function() { closeOpMenus(); });
+        document.addEventListener('click', function() { 
+            closeOpMenus(); 
+            document.getElementById('history-popup').style.display = 'none';
+        });
 
         // --- ヘルプ機能 ---
         function toggleHelp(e) {
@@ -1374,91 +1433,142 @@
             const task = tasks.find(t => t.id === taskId);
             if(!task) return;
             
-            // タスクのリスク配列を初期化（なければ空配列）
-            // オブジェクト配列 { title: string, mitigation: string }
             if(!task.risks) task.risks = [];
 
             const listContainer = document.getElementById('risk-list');
             listContainer.innerHTML = '';
 
-            // マスタとタスクのデータをマージして表示用リストを作成
-            // マスタにあるものはマスタから、タスク独自のもの（マスタ削除後など）も表示する
+            // マスタデータをカテゴリごとにグルーピング
+            const groupedRisks = {};
             const displayRisks = [...masterRisks];
             
-            // タスクにあってマスタにないものを追加（重複チェック）
+            // タスクにあってマスタにないもの（削除済みなど）も追加
             task.risks.forEach(r => {
-                if(!displayRisks.includes(r.title)) {
-                    displayRisks.push(r.title);
+                if(!displayRisks.some(mr => mr.title === r.title)) {
+                    displayRisks.push({ category: "その他", title: r.title });
                 }
             });
 
-            displayRisks.forEach(riskTitle => {
-                // タスクがこのリスクを持っているかチェック
-                const existing = task.risks.find(r => r.title === riskTitle);
-                const isChecked = !!existing;
-                const mitigationValue = existing ? existing.mitigation : "";
+            displayRisks.forEach(item => {
+                const cat = item.category || "その他";
+                if(!groupedRisks[cat]) groupedRisks[cat] = [];
+                groupedRisks[cat].push(item.title);
+            });
 
-                const item = document.createElement('div');
-                item.className = 'risk-item';
+            // カテゴリ順に表示
+            const predefinedCats = ["要件・仕様", "技術・開発", "リソース・体制", "外部要因", "スケジュール", "その他"];
+            const allCats = [...predefinedCats];
+            
+            // 未知のカテゴリがあれば末尾に追加
+            Object.keys(groupedRisks).forEach(c => {
+                if(!allCats.includes(c)) allCats.push(c);
+            });
+
+            allCats.forEach(cat => {
+                const titles = groupedRisks[cat];
+                if(!titles || titles.length === 0) return;
+
+                const catDiv = document.createElement('div');
+                catDiv.className = 'risk-category';
                 
-                // 上段：チェック、リスク名、削除ボタン
-                const mainRow = document.createElement('div');
-                mainRow.className = 'risk-row-main';
+                const header = document.createElement('div');
+                header.className = 'risk-category-header';
+                header.innerHTML = `<span>${cat}</span> <span class="edit-cat-btn" onclick="editCategoryName('${cat}')">✎</span>`;
+                catDiv.appendChild(header);
 
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.className = 'risk-chk';
-                checkbox.value = riskTitle;
-                checkbox.checked = isChecked;
-                checkbox.onchange = function() {
-                    toggleRiskMitigation(this);
-                };
-                
-                // リスク名編集用インプット
-                const nameInput = document.createElement('input');
-                nameInput.type = 'text';
-                nameInput.value = riskTitle;
-                nameInput.title = "編集するとマスタも更新されます";
-                nameInput.onchange = function() {
-                    updateMasterRiskName(riskTitle, this.value);
-                };
+                titles.forEach(riskTitle => {
+                    const existing = task.risks.find(r => r.title === riskTitle);
+                    const isChecked = !!existing;
+                    const mitigationValue = existing ? existing.mitigation : "";
 
-                const delBtn = document.createElement('button');
-                delBtn.innerText = '🗑';
-                delBtn.style.padding = '2px 6px';
-                delBtn.title = "リストから削除";
-                delBtn.onclick = function() {
-                    deleteMasterRisk(riskTitle);
-                };
+                    const item = document.createElement('div');
+                    item.className = 'risk-item';
+                    
+                    const mainRow = document.createElement('div');
+                    mainRow.className = 'risk-row-main';
 
-                mainRow.appendChild(checkbox);
-                mainRow.appendChild(nameInput);
-                mainRow.appendChild(delBtn);
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'risk-chk';
+                    checkbox.value = riskTitle;
+                    checkbox.checked = isChecked;
+                    checkbox.onchange = function() {
+                        toggleRiskMitigation(this);
+                    };
+                    
+                    const nameInput = document.createElement('input');
+                    nameInput.type = 'text';
+                    nameInput.value = riskTitle;
+                    nameInput.title = "編集するとマスタも更新されます";
+                    nameInput.onchange = function() {
+                        updateMasterRiskName(riskTitle, this.value);
+                    };
 
-                // 下段：予防策入力
-                const mitigationBox = document.createElement('div');
-                mitigationBox.className = 'risk-mitigation-box ' + (isChecked ? 'active' : '');
-                
-                const mitLabel = document.createElement('span');
-                mitLabel.className = 'risk-label';
-                mitLabel.innerText = '↳ 予防策:';
-                
-                const mitInput = document.createElement('input');
-                mitInput.type = 'text';
-                mitInput.className = 'risk-mitigation-input';
-                mitInput.placeholder = '対策を入力...';
-                mitInput.value = mitigationValue;
+                    const delBtn = document.createElement('button');
+                    delBtn.innerText = '🗑';
+                    delBtn.style.padding = '2px 6px';
+                    delBtn.title = "リストから削除";
+                    delBtn.onclick = function() {
+                        deleteMasterRisk(riskTitle);
+                    };
 
-                mitigationBox.appendChild(mitLabel);
-                mitigationBox.appendChild(mitInput);
+                    mainRow.appendChild(checkbox);
+                    mainRow.appendChild(nameInput);
+                    mainRow.appendChild(delBtn);
 
-                item.appendChild(mainRow);
-                item.appendChild(mitigationBox);
-                listContainer.appendChild(item);
+                    const mitigationBox = document.createElement('div');
+                    mitigationBox.className = 'risk-mitigation-box ' + (isChecked ? 'active' : '');
+                    
+                    const mitLabel = document.createElement('span');
+                    mitLabel.className = 'risk-label';
+                    mitLabel.innerText = '↳ 予防策:';
+                    
+                    const mitInput = document.createElement('input');
+                    mitInput.type = 'text';
+                    mitInput.className = 'risk-mitigation-input';
+                    mitInput.placeholder = '対策を入力...';
+                    mitInput.value = mitigationValue;
+                    
+                    const historyBtn = document.createElement('div');
+                    historyBtn.className = 'risk-history-btn';
+                    historyBtn.innerHTML = '🕒';
+                    historyBtn.title = "過去の予防策を参照";
+                    historyBtn.onclick = (e) => showMitigationHistory(e, riskTitle, mitInput);
+
+                    mitigationBox.appendChild(mitLabel);
+                    mitigationBox.appendChild(mitInput);
+                    mitigationBox.appendChild(historyBtn);
+
+                    item.appendChild(mainRow);
+                    item.appendChild(mitigationBox);
+                    catDiv.appendChild(item);
+                });
+                listContainer.appendChild(catDiv);
             });
 
             document.getElementById('new-risk-input').value = '';
             document.getElementById('risk-modal').style.display = 'flex';
+        }
+
+        function editCategoryName(oldName) {
+            const newName = prompt("新しいカテゴリ名を入力してください:", oldName);
+            if (newName && newName.trim() !== "" && newName !== oldName) {
+                // マスタデータのカテゴリ名を更新
+                let updated = false;
+                masterRisks.forEach(r => {
+                    if (r.category === oldName) {
+                        r.category = newName;
+                        updated = true;
+                    }
+                });
+                
+                if (updated) {
+                    localStorage.setItem(getStorageKey() + '-master-risks', JSON.stringify(masterRisks));
+                    // 画面を再描画（現在の入力状態を一時保存してから）
+                    tempSaveCurrentRiskState();
+                    openRiskModal(activeRiskTaskId);
+                }
+            }
         }
 
         function toggleRiskMitigation(checkbox) {
@@ -1472,16 +1582,20 @@
         }
 
         function addCustomRisk() {
+            const catInput = document.getElementById('new-risk-category');
             const input = document.getElementById('new-risk-input');
             const newRisk = input.value.trim();
+            let category = catInput.value.trim();
+            
+            if(!category) category = "その他";
             if(!newRisk) return;
 
-            if(!masterRisks.includes(newRisk)) {
-                masterRisks.push(newRisk);
+            // マスタに存在しない場合のみ追加
+            if(!masterRisks.some(r => r.title === newRisk)) {
+                masterRisks.push({ category: category, title: newRisk });
                 localStorage.setItem(getStorageKey() + '-master-risks', JSON.stringify(masterRisks));
             }
             
-            // 現在のUI状態をタスクデータに一時反映してから再描画
             tempSaveCurrentRiskState();
             openRiskModal(activeRiskTaskId);
         }
@@ -1490,16 +1604,13 @@
             newName = newName.trim();
             if(!newName || oldName === newName) return;
 
-            // マスタ更新
-            const idx = masterRisks.indexOf(oldName);
-            if(idx !== -1) {
-                masterRisks[idx] = newName;
+            const target = masterRisks.find(r => r.title === oldName);
+            if(target) {
+                target.title = newName;
                 localStorage.setItem(getStorageKey() + '-master-risks', JSON.stringify(masterRisks));
             }
 
-            // タスクデータ内のリスク名も更新する必要があるか？
-            // 既存タスクのデータ整合性を保つため、全タスクを走査して更新する
-            saveState(); // Undo用
+            saveState(); 
             tasks.forEach(t => {
                 if(t.risks) {
                     t.risks.forEach(r => {
@@ -1509,24 +1620,22 @@
                     });
                 }
             });
-            localStorage.setItem(getStorageKey(), JSON.stringify(tasks)); // 即保存
+            localStorage.setItem(getStorageKey(), JSON.stringify(tasks)); 
 
-            // UI再描画
-            tempSaveCurrentRiskState(); // 編集中の他の項目を維持
+            tempSaveCurrentRiskState(); 
             openRiskModal(activeRiskTaskId);
         }
 
         function deleteMasterRisk(name) {
             if(!confirm(`「${name}」をリストから削除しますか？\n（使用中のタスクからは削除されません）`)) return;
 
-            masterRisks = masterRisks.filter(r => r !== name);
+            masterRisks = masterRisks.filter(r => r.title !== name);
             localStorage.setItem(getStorageKey() + '-master-risks', JSON.stringify(masterRisks));
             
             tempSaveCurrentRiskState();
             openRiskModal(activeRiskTaskId);
         }
 
-        // モーダルを開いたまま再描画するために、現在の入力状態をタスクオブジェクトに退避させる関数
         function tempSaveCurrentRiskState() {
             if(!activeRiskTaskId) return;
             const task = tasks.find(t => t.id === activeRiskTaskId);
@@ -1538,8 +1647,6 @@
             items.forEach(item => {
                 const checkbox = item.querySelector('.risk-chk');
                 if(checkbox.checked) {
-                    // チェックされている項目だけを拾う
-                    // リスク名は checkbox.value (元々のリスク名) を使う
                     const riskName = checkbox.value; 
                     const mitInput = item.querySelector('.risk-mitigation-input');
                     newRisks.push({
@@ -1553,12 +1660,67 @@
 
         function saveTaskRisks() {
             if(!activeRiskTaskId) return;
-            // 最終的な保存処理
-            tempSaveCurrentRiskState(); // 現在のDOM状態を反映
-            saveState(); // Undo履歴に追加
+            tempSaveCurrentRiskState();
+            saveState();
             render();
             document.getElementById('risk-modal').style.display = 'none';
             activeRiskTaskId = null;
+        }
+        
+        // 予防策履歴参照機能
+        function showMitigationHistory(e, riskTitle, inputElement) {
+            e.stopPropagation();
+            const history = new Set();
+            
+            tasks.forEach(t => {
+                if(t.risks) {
+                    t.risks.forEach(r => {
+                        if(r.title === riskTitle && r.mitigation && r.mitigation.trim() !== "") {
+                            history.add(r.mitigation);
+                        }
+                    });
+                }
+            });
+            
+            const historyList = Array.from(history);
+            const popup = document.getElementById('history-popup');
+            popup.innerHTML = '';
+            
+            if (historyList.length === 0) {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.style.color = '#999';
+                div.innerText = '(履歴なし)';
+                popup.appendChild(div);
+            } else {
+                historyList.forEach(hist => {
+                    const div = document.createElement('div');
+                    div.className = 'history-item';
+                    div.innerText = hist;
+                    div.onclick = () => {
+                        inputElement.value = hist;
+                        popup.style.display = 'none';
+                    };
+                    popup.appendChild(div);
+                });
+            }
+            
+            // ポップアップ位置調整
+            const rect = e.target.getBoundingClientRect();
+            // スクロール位置を考慮して配置
+            const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+            const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+            
+            popup.style.top = (rect.bottom + scrollY + 2) + 'px';
+            // 画面右端からはみ出ないように調整
+            const popupWidth = 250;
+            if (rect.left + popupWidth > window.innerWidth) {
+                popup.style.left = (window.innerWidth - popupWidth - 20) + 'px';
+            } else {
+                popup.style.left = (rect.left + scrollX - 200) + 'px';
+            }
+            
+            popup.style.display = 'block';
         }
 
         // --- 実績参照 ---
