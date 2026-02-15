@@ -16,8 +16,7 @@
             --today-line: #ff0000;  
             --row-h: 34px;
             --day-w: 55px; 
-            /* 幅を修正: 各列の合計(980+155=1135px)に合わせて余白と見切れを解消 */
-            --wbs-w: 1120px; /* $$fujita */
+            --wbs-w: 1120px;
             
             /* ヒートマップ用色定義 */
             --overload-bg: #ffdddd; 
@@ -27,14 +26,14 @@
             --holiday-col: #ffebec;
             --holiday-text: #dc3545;
 
-            /* マイルストーン行の背景色（馴染む薄いブルーグレー） */
+            /* マイルストーン行の背景色 */
             --milestone-bg: #f0f8ff;
         }
 
         * { box-sizing: border-box; }
         body { font-family: "Meiryo", "MS PGothic", sans-serif; margin: 15px; font-size: 12px; background: #f9f9f9; color: #333; overflow: hidden; }
         
-        /* コントロールバーの整理 */
+        /* コントロールバー */
         .controls { 
             margin-bottom: 10px; 
             display: flex; 
@@ -58,13 +57,13 @@
         button.primary { background: var(--excel-blue); color: white; border-color: var(--excel-blue); }
         button.primary:hover { background-color: #1e3a6e; border-color: #1e3a6e; color: #fff; }
 
-        /* アイコンボタン（保存・読込など） */
+        /* アイコンボタン */
         button.icon-only { padding: 5px 8px; font-size: 14px; }
         
         .separator { width: 1px; height: 18px; background: #ddd; margin: 0 4px; }
         .spacer { margin-left: auto; }
 
-        /* ヘルプボタン用スタイル */
+        /* ヘルプボタン */
         .help-btn {
             width: 24px; height: 24px; padding: 0;
             border-radius: 50%; border: 1px solid #999;
@@ -156,7 +155,7 @@
         .header .col-date, 
         .header .col-progress { overflow: visible !important; position: relative; } 
 
-        /* 列幅の定義 */
+        /* 列幅 */
         .col-no { width: 45px; justify-content: center !important; background: #f0f0f0 !important; font-weight: bold; }
         .col-title { width: 220px; }
         .col-owner { width: 90px; } 
@@ -188,14 +187,11 @@
         }
         .milestone-gantt-row .cell { border-bottom: none; }
         .milestone-gantt-row { box-shadow: 0 1px 0 var(--border); }
-        .milestone-icon-img { width: 20px; height: 20px; object-fit: contain; display: block; }
 
         input { width: 100%; border: none; outline: none; background: transparent; font-size: 12px; font-family: inherit; }
         input[type="number"] { text-align: center; }
 
-        .date-display-text { font-size: 12px; padding-left: 2px; color: #333; cursor: default; white-space: nowrap; }
         .date-input { cursor: pointer; text-align: left; width: 100%; }
-        
         .hour-input { height: 100%; font-size: 11px; padding-right: 2px !important; width: 100%; color: inherit; cursor: pointer; z-index: 2; position: relative; }
 
         .icon-btn {
@@ -318,10 +314,6 @@
 
         /* リスク管理用 */
         .risk-list-container { max-height: 400px; overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; padding: 8px; margin-bottom: 10px; }
-        .risk-category { margin-bottom: 15px; }
-        .risk-category-header { font-weight: bold; font-size: 13px; color: var(--excel-blue); border-bottom: 1px solid #ddd; padding-bottom: 3px; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }
-        .risk-category-header .edit-cat-btn { cursor: pointer; color: #888; font-size: 12px; }
-        .risk-category-header .edit-cat-btn:hover { color: #2f5597; }
         
         .risk-item { 
             border-bottom: 1px solid #eee; padding: 6px 0; 
@@ -361,8 +353,7 @@
 
         .add-risk-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
         .add-risk-row input { border: 1px solid #ccc; padding: 5px; border-radius: 3px; flex-grow: 1; text-align: left; }
-        .add-risk-row input[list] { width: 140px; flex-grow: 0; }
-
+        
         /* 履歴選択ポップアップ */
         .history-popup {
             position: absolute; background: #fff; border: 1px solid #999; box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
@@ -484,15 +475,6 @@
             </div>
             <div class="risk-list-container" id="risk-list"></div>
             <div class="add-risk-row">
-                <input list="category-list" id="new-risk-category" placeholder="カテゴリ選択/入力...">
-                <datalist id="category-list">
-                    <option value="要件・仕様">
-                    <option value="技術・開発">
-                    <option value="リソース・体制">
-                    <option value="外部要因">
-                    <option value="スケジュール">
-                    <option value="その他">
-                </datalist>
                 <input type="text" id="new-risk-input" placeholder="新しいリスクを追加...">
                 <button class="primary" onclick="addCustomRisk()">追加</button>
             </div>
@@ -678,13 +660,12 @@
         
         let milestones = JSON.parse(localStorage.getItem(getStorageKey() + '-milestones')) || [];
         
-        // リスクマスタリスト（カテゴリ対応版）
-        // マイグレーション用ロジック：古い形式(文字列配列)なら変換する
+        // リスクマスタリスト
         let loadedRisks = JSON.parse(localStorage.getItem(getStorageKey() + '-master-risks'));
         let masterRisks = [];
         
         if (!loadedRisks) {
-            // カテゴリごとのプリセットを充実させる
+            // カテゴリごとのプリセット
             masterRisks = [
                 { category: "要件・仕様", title: "仕様変更の可能性が高い" },
                 { category: "要件・仕様", title: "要件が未確定・曖昧" },
@@ -1436,7 +1417,7 @@
             closeMemo();
         }
 
-        // --- リスク管理 ---
+        // --- リスク管理 (カテゴリ/分類＝親概念を廃止したフラット版) ---
         function openRiskModal(taskId) {
             activeRiskTaskId = taskId;
             const task = tasks.find(t => t.id === taskId);
@@ -1447,137 +1428,88 @@
             const listContainer = document.getElementById('risk-list');
             listContainer.innerHTML = '';
 
-            // マスタデータをカテゴリごとにグルーピング
-            const groupedRisks = {};
+            // マスタデータとタスク固有のリスクを統合して表示リストを作成
             const displayRisks = [...masterRisks];
             
             // タスクにあってマスタにないもの（削除済みなど）も追加
             task.risks.forEach(r => {
                 if(!displayRisks.some(mr => mr.title === r.title)) {
-                    displayRisks.push({ category: "その他", title: r.title });
+                    displayRisks.push({ category: "一般", title: r.title });
                 }
             });
 
+            // カテゴリ分けせず、フラットに全て表示する
             displayRisks.forEach(item => {
-                const cat = item.category || "その他";
-                if(!groupedRisks[cat]) groupedRisks[cat] = [];
-                groupedRisks[cat].push(item.title);
-            });
+                const riskTitle = item.title;
+                const existing = task.risks.find(r => r.title === riskTitle);
+                const isChecked = !!existing;
+                const mitigationValue = existing ? existing.mitigation : "";
 
-            // カテゴリ順に表示
-            const predefinedCats = ["要件・仕様", "技術・開発", "リソース・体制", "外部要因", "スケジュール", "その他"];
-            const allCats = [...predefinedCats];
-            
-            // 未知のカテゴリがあれば末尾に追加
-            Object.keys(groupedRisks).forEach(c => {
-                if(!allCats.includes(c)) allCats.push(c);
-            });
-
-            allCats.forEach(cat => {
-                const titles = groupedRisks[cat];
-                if(!titles || titles.length === 0) return;
-
-                const catDiv = document.createElement('div');
-                catDiv.className = 'risk-category';
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'risk-item';
                 
-                const header = document.createElement('div');
-                header.className = 'risk-category-header';
-                header.innerHTML = `<span>${cat}</span> <span class="edit-cat-btn" onclick="editCategoryName('${cat}')">✎</span>`;
-                catDiv.appendChild(header);
+                const mainRow = document.createElement('div');
+                mainRow.className = 'risk-row-main';
 
-                titles.forEach(riskTitle => {
-                    const existing = task.risks.find(r => r.title === riskTitle);
-                    const isChecked = !!existing;
-                    const mitigationValue = existing ? existing.mitigation : "";
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'risk-chk';
+                checkbox.value = riskTitle;
+                checkbox.checked = isChecked;
+                checkbox.onchange = function() {
+                    toggleRiskMitigation(this);
+                };
+                
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.value = riskTitle;
+                nameInput.title = "編集するとマスタも更新されます";
+                nameInput.onchange = function() {
+                    updateMasterRiskName(riskTitle, this.value);
+                };
 
-                    const item = document.createElement('div');
-                    item.className = 'risk-item';
-                    
-                    const mainRow = document.createElement('div');
-                    mainRow.className = 'risk-row-main';
+                const delBtn = document.createElement('button');
+                delBtn.innerText = '🗑';
+                delBtn.style.padding = '2px 6px';
+                delBtn.title = "リストから削除";
+                delBtn.onclick = function() {
+                    deleteMasterRisk(riskTitle);
+                };
 
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.className = 'risk-chk';
-                    checkbox.value = riskTitle;
-                    checkbox.checked = isChecked;
-                    checkbox.onchange = function() {
-                        toggleRiskMitigation(this);
-                    };
-                    
-                    const nameInput = document.createElement('input');
-                    nameInput.type = 'text';
-                    nameInput.value = riskTitle;
-                    nameInput.title = "編集するとマスタも更新されます";
-                    nameInput.onchange = function() {
-                        updateMasterRiskName(riskTitle, this.value);
-                    };
+                mainRow.appendChild(checkbox);
+                mainRow.appendChild(nameInput);
+                mainRow.appendChild(delBtn);
 
-                    const delBtn = document.createElement('button');
-                    delBtn.innerText = '🗑';
-                    delBtn.style.padding = '2px 6px';
-                    delBtn.title = "リストから削除";
-                    delBtn.onclick = function() {
-                        deleteMasterRisk(riskTitle);
-                    };
+                const mitigationBox = document.createElement('div');
+                mitigationBox.className = 'risk-mitigation-box ' + (isChecked ? 'active' : '');
+                
+                const mitLabel = document.createElement('span');
+                mitLabel.className = 'risk-label';
+                mitLabel.innerText = '↳ 予防策:';
+                
+                const mitInput = document.createElement('input');
+                mitInput.type = 'text';
+                mitInput.className = 'risk-mitigation-input';
+                mitInput.placeholder = '対策を入力...';
+                mitInput.value = mitigationValue;
+                
+                const historyBtn = document.createElement('div');
+                historyBtn.className = 'risk-history-btn';
+                historyBtn.innerHTML = '🕒';
+                historyBtn.title = "過去の予防策を参照";
+                historyBtn.onclick = (e) => showMitigationHistory(e, riskTitle, mitInput);
 
-                    mainRow.appendChild(checkbox);
-                    mainRow.appendChild(nameInput);
-                    mainRow.appendChild(delBtn);
+                mitigationBox.appendChild(mitLabel);
+                mitigationBox.appendChild(mitInput);
+                mitigationBox.appendChild(historyBtn);
 
-                    const mitigationBox = document.createElement('div');
-                    mitigationBox.className = 'risk-mitigation-box ' + (isChecked ? 'active' : '');
-                    
-                    const mitLabel = document.createElement('span');
-                    mitLabel.className = 'risk-label';
-                    mitLabel.innerText = '↳ 予防策:';
-                    
-                    const mitInput = document.createElement('input');
-                    mitInput.type = 'text';
-                    mitInput.className = 'risk-mitigation-input';
-                    mitInput.placeholder = '対策を入力...';
-                    mitInput.value = mitigationValue;
-                    
-                    const historyBtn = document.createElement('div');
-                    historyBtn.className = 'risk-history-btn';
-                    historyBtn.innerHTML = '🕒';
-                    historyBtn.title = "過去の予防策を参照";
-                    historyBtn.onclick = (e) => showMitigationHistory(e, riskTitle, mitInput);
-
-                    mitigationBox.appendChild(mitLabel);
-                    mitigationBox.appendChild(mitInput);
-                    mitigationBox.appendChild(historyBtn);
-
-                    item.appendChild(mainRow);
-                    item.appendChild(mitigationBox);
-                    catDiv.appendChild(item);
-                });
-                listContainer.appendChild(catDiv);
+                itemDiv.appendChild(mainRow);
+                itemDiv.appendChild(mitigationBox);
+                listContainer.appendChild(itemDiv);
             });
 
             document.getElementById('new-risk-input').value = '';
             document.getElementById('risk-modal').style.display = 'flex';
-        }
-
-        function editCategoryName(oldName) {
-            const newName = prompt("新しいカテゴリ名を入力してください:", oldName);
-            if (newName && newName.trim() !== "" && newName !== oldName) {
-                // マスタデータのカテゴリ名を更新
-                let updated = false;
-                masterRisks.forEach(r => {
-                    if (r.category === oldName) {
-                        r.category = newName;
-                        updated = true;
-                    }
-                });
-                
-                if (updated) {
-                    localStorage.setItem(getStorageKey() + '-master-risks', JSON.stringify(masterRisks));
-                    // 画面を再描画（現在の入力状態を一時保存してから）
-                    tempSaveCurrentRiskState();
-                    openRiskModal(activeRiskTaskId);
-                }
-            }
         }
 
         function toggleRiskMitigation(checkbox) {
@@ -1591,12 +1523,11 @@
         }
 
         function addCustomRisk() {
-            const catInput = document.getElementById('new-risk-category');
+            // カテゴリ入力は廃止
             const input = document.getElementById('new-risk-input');
             const newRisk = input.value.trim();
-            let category = catInput.value.trim();
+            const category = "一般"; // 内部的には固定カテゴリとして扱う
             
-            if(!category) category = "その他";
             if(!newRisk) return;
 
             // マスタに存在しない場合のみ追加
@@ -2108,7 +2039,7 @@
             r.readAsText(e.target.files[0]);
         }
         
-        // --- フィルタロジック (初期バージョン仕様) ---
+        // --- フィルタロジック ---
         function toggleFilterMenu(e) { 
             e.stopPropagation(); 
             document.getElementById('date-filter-menu').style.display='none'; 
