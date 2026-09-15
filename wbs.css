@@ -35,3 +35,4 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}.app-shell{displ
 .field-note{margin-left:6px;color:#999faf;font-size:8px;font-weight:500;letter-spacing:0}
 .field input:disabled,.field select:disabled{background:#f0f1f4;color:#838999;cursor:not-allowed;border-style:dashed}
 @media(max-width:1050px){.hide-completed-toggle{font-size:0;padding:8px}.hide-completed-toggle:after{content:"完了非表示";font-size:8px}}
+.customer-report-modal{width:min(820px,96vw)}.report-description{margin:-7px 0 16px;color:var(--muted);font-size:10px;line-height:1.7}.report-preview{min-height:390px;resize:vertical;background:#fbfbfd!important;font-family:"Cascadia Mono","Consolas",monospace!important;font-size:11px!important;line-height:1.75;white-space:pre}.report-task-count{color:var(--muted);font-size:9px;font-weight:800}.report-actions{grid-template-columns:auto 1fr auto auto}

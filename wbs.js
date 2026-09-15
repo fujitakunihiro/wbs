@@ -377,6 +377,51 @@ function addMonthlyCheck(){const month=document.getElementById('checkMonth').val
 function renderMonthlyList(){const list=state.goal.monthlyChecks.slice().sort((a,b)=>b.month.localeCompare(a.month));document.getElementById('monthlyList').innerHTML=list.length?list.map(x=>`<div class="activity-item"><span class="activity-icon">${x.month.slice(5)}</span><div class="item-grow"><strong>${x.month.replace('-','年')}月の確認</strong><small>${esc(x.note)}</small></div><button onclick="deleteGoalEntry('monthly','${x.id}')">×</button></div>`).join(''):'<div class="activity-empty">月次確認の記録はまだありません</div>'}
 function deleteGoalEntry(type,id){if(!confirm('この記録を削除しますか？'))return;if(type==='domain')state.goal.domains=state.goal.domains.filter(x=>x.id!==id);else state.goal.monthlyChecks=state.goal.monthlyChecks.filter(x=>x.id!==id);save();renderGoal()}
 
+const REPORT_STATUS={todo:'未',doing:'中',review:'確認',done:'済',blocked:'保留'};
+function reportDate(value){
+  if(!value)return '--/--';
+  const date=new Date(`${value}T00:00:00`);
+  if(Number.isNaN(date.getTime()))return '--/--';
+  return `${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;
+}
+function reportLine(value){return String(value||'').replace(/\r?\n/g,' ').trim()}
+function buildCustomerReport(){
+  const lines=[];
+  let includeGroup=false,parentCount=0,taskCount=0;
+  state.tasks.forEach((task,index)=>{
+    if(task.level===0){
+      const parent=displayTask(task,index);
+      includeGroup=Number(parent.progress)<100&&parent.status!=='done';
+      if(includeGroup)parentCount++;
+    }
+    if(!includeGroup)return;
+    const shown=displayTask(task,index);
+    const title=reportLine(task.title)||'名称未設定';
+    const status=REPORT_STATUS[shown.status]||REPORT_STATUS.todo;
+    lines.push(`${'#'.repeat(Math.min(3,Number(task.level)+1))} ${title} [${status}] ${reportDate(shown.start)} - ${reportDate(shown.end)}`,'');
+    const memoLines=String(task.memo||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+    memoLines.forEach(line=>lines.push(`- ${line}`));
+    if(memoLines.length)lines.push('');
+    taskCount++;
+  });
+  if(!parentCount)lines.push('# 対応中の親タスクはありません','');
+  return {text:`${lines.join('\r\n').trimEnd()}\r\n`,parentCount,taskCount};
+}
+function openCustomerReport(){
+  const report=buildCustomerReport();
+  document.getElementById('customerReportPreview').value=report.text;
+  document.getElementById('reportTaskCount').textContent=`未完了の親 ${report.parentCount}件 / 出力タスク ${report.taskCount}件`;
+  openModal('customerReportModal');
+}
+function downloadCustomerReport(){
+  const report=buildCustomerReport();
+  const safeName=String(state.projectName||'project').replace(/[\\/:*?"<>|]/g,'_');
+  const blob=new Blob(['\uFEFF',report.text],{type:'text/plain;charset=utf-8'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=`${safeName}_進捗レポート_${localDate().replaceAll('-','')}.txt`;a.click();URL.revokeObjectURL(a.href);
+  document.getElementById('customerReportPreview').value=report.text;
+  document.getElementById('reportTaskCount').textContent=`未完了の親 ${report.parentCount}件 / 出力タスク ${report.taskCount}件`;
+  toast('お客様レポートを書き出しました');
+}
 function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`teamflow-${localDate()}.json`;a.click();URL.revokeObjectURL(a.href);toast('バックアップを書き出しました')}
 function importData(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);if(!Array.isArray(data.tasks))throw new Error();state=data;state.goal=state.goal||defaultGoal();state.layout=state.layout||{sidebarCollapsed:false,compactMode:false};if(typeof state.layout.hideCompletedParents!=='boolean')state.layout.hideCompletedParents=true;activeOwner='all';applyLayoutSettings();render();toast('データを復元しました')}catch(e){toast('読み込めるJSON形式ではありません')}};reader.readAsText(file);event.target.value=''}
 let toastTimer;function toast(message){const el=document.getElementById('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2200)}

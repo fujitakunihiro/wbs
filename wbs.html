@@ -14,6 +14,7 @@
       <nav class="side-nav" aria-label="メインメニュー">
         <button class="nav-item active"><span>▦</span> WBS / ガント</button>
         <button class="nav-item goal-nav" onclick="openGoalModal()"><span>◈</span> 目標 / KPI</button>
+        <button class="nav-item" onclick="openCustomerReport()"><span>▤</span> お客様レポート</button>
         <button class="nav-item" onclick="openMilestoneModal()"><span>◆</span> マイルストーン</button>
         <button class="nav-item" onclick="openTeamModal()"><span>◎</span> チーム</button>
       </nav>
@@ -36,6 +37,7 @@
         <div class="top-actions">
           <button class="icon-button" title="今日へ移動" onclick="jumpToday()">◎</button>
           <button class="secondary focus-button" id="focusModeButton" onclick="toggleCompactMode()">⛶ 集中表示</button>
+          <button class="secondary" onclick="openCustomerReport()">▤ レポート</button>
           <button class="secondary goal-button" onclick="openGoalModal()">◈ 目標 / KPI</button>
           <button class="secondary" onclick="openMilestoneModal()">◆ マイルストーン</button>
           <button class="primary" onclick="addTask()">＋ タスクを追加</button>
@@ -135,6 +137,15 @@
         </section>
       </div>
       <p class="kpi-guide">記載率は末端タスクの「目的・成果物・開始日・期限・課題」から自動計算します。事前共有率と未調整期限超過は、タスク編集画面のKPI管理項目に連動します。</p>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="customerReportModal" role="dialog" aria-modal="true">
+    <div class="modal customer-report-modal">
+      <div class="modal-head"><div><p class="eyebrow">CUSTOMER REPORT</p><h2>お客様向け進捗レポート</h2></div><button class="modal-close" onclick="closeModal('customerReportModal')">×</button></div>
+      <p class="report-description">未完了の親タスクと、その配下の子・孫タスクをMarkdown形式で出力します。完了済みの子・孫も経緯が伝わるように含めます。</p>
+      <label class="field full"><span>出力プレビュー</span><textarea id="customerReportPreview" class="report-preview" rows="22" readonly></textarea></label>
+      <div class="modal-actions report-actions"><span id="reportTaskCount" class="report-task-count"></span><span></span><button type="button" class="secondary" onclick="closeModal('customerReportModal')">閉じる</button><button type="button" class="primary" onclick="downloadCustomerReport()">⇩ TXTを出力</button></div>
     </div>
   </div>
 
