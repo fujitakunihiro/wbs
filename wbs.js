@@ -14,13 +14,6 @@ let dragState = null;
 let pointerDrag = null;
 let dependencyDrag = null;
 let state = loadState();
-state.goal = state.goal || defaultGoal();
-state.layout = state.layout || {sidebarCollapsed:false,compactMode:false};
-if(typeof state.layout.hideCompletedParents!=='boolean')state.layout.hideCompletedParents=true;
-
-function defaultGoal() {
-  return {title:'PP様を含む進捗・課題管理',periodStart:localDate().slice(0,7),domains:[],monthlyChecks:[]};
-}
 
 function localDate(date = new Date()) {
   const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -38,7 +31,7 @@ function sampleState() {
     {id:'m1',name:'佐藤',color:'#7158e8'}, {id:'m2',name:'鈴木',color:'#00b9c2'}, {id:'m3',name:'田中',color:'#ff4fb8'}
   ];
   return {
-    projectName:'新製品リリース', members,
+    members,
     tasks:[
       {id:'t1',title:'企画・要件定義',level:0,owner:'m1',start:addDays(today,-5),end:addDays(today,4),effort:7,progress:65,status:'doing',dependency:'',memo:'利用部門とのレビューを今週中に完了する。'},
       {id:'t2',title:'利用部門ヒアリング',level:1,owner:'m1',start:addDays(today,-5),end:addDays(today,-2),effort:2,progress:100,status:'done',dependency:'',memo:'議事録は共有フォルダに保存済み。'},
@@ -53,8 +46,7 @@ function sampleState() {
       {id:'ms1',name:'要件確定',date:addDays(today,4),color:'#ff4fb8'},
       {id:'ms2',name:'デザイン承認',date:addDays(today,10),color:'#7158e8'},
       {id:'ms3',name:'リリース判定',date:addDays(today,17),color:'#00b9c2'}
-    ],
-    goal:defaultGoal()
+    ]
   };
 }
 
@@ -69,19 +61,27 @@ function migrateLegacy(old) {
     const progress = Math.max(0,Math.min(100,Number(t.progress)||0));
     return {id:String(t.id||uid()),title:t.title||'名称未設定',level:t.isGroup?0:(groupSeen?1:0),owner:(members.find(m=>m.name===t.owner)||{}).id||'',start:t.start||localDate(),end:t.end||t.start||localDate(),effort:Number(t.est?Number(t.est)/8:actualHours/8)||0,progress,status:progress>=100?'done':progress>0?'doing':'todo',dependency:'',memo:t.memo||''};
   });
-  return {projectName:'チームプロジェクト',members,tasks,milestones:[],goal:defaultGoal()};
+  return {members,tasks,milestones:[]};
 }
 
+function prepareState(data) {
+  delete data.goal;delete data.projectName;delete data.id;
+  data.members=Array.isArray(data.members)?data.members:[];data.tasks=Array.isArray(data.tasks)?data.tasks:[];data.milestones=Array.isArray(data.milestones)?data.milestones:[];
+  data.layout=data.layout||{sidebarCollapsed:false,compactMode:false,hideCompletedParents:true};
+  if(typeof data.layout.hideCompletedParents!=='boolean')data.layout.hideCompletedParents=true;
+  return data;
+}
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE));
-    if(saved?.tasks) return saved;
+    if(Array.isArray(saved?.projects)&&saved.projects.length){const active=saved.projects.find(project=>String(project.id)===String(saved.activeProjectId))||saved.projects[0];return prepareState(active)}
+    if(saved?.tasks)return prepareState(saved);
     const legacy = JSON.parse(localStorage.getItem(LEGACY_STORE));
-    if(Array.isArray(legacy) && legacy.length) return migrateLegacy(legacy);
+    if(Array.isArray(legacy) && legacy.length)return prepareState(migrateLegacy(legacy));
   } catch(e) { console.warn('保存データを読み込めませんでした',e); }
-  return sampleState();
+  return prepareState(sampleState());
 }
-function save(show=false) { localStorage.setItem(STORE,JSON.stringify(state)); if(show) toast('保存しました'); }
+function save(show=false) { localStorage.setItem(STORE,JSON.stringify(state)); if(show)toast('保存しました'); }
 function member(id) { return state.members.find(m=>m.id===id) || {name:'未割当',color:'#9aa2b1'}; }
 function taskById(id) { return state.tasks.find(t=>String(t.id)===String(id)); }
 
@@ -323,8 +323,6 @@ function startDependencyDrag(event,sourceId){
 }
 function render() {
   normalizedLevels();
-  document.getElementById('projectName').value=state.projectName;
-  document.getElementById('projectTitle').textContent=state.projectName;
   renderSummary(); renderOwnerTabs();
   const visible=visibleIndexes(), nos=numberTasks(), today=localDate(), start=addDays(today,-7+rangeOffset), totalDays=42;
   renderHead(start,totalDays);
@@ -351,7 +349,6 @@ function applyLayoutSettings(){
 function toggleSidebar(){state.layout.sidebarCollapsed=!state.layout.sidebarCollapsed;applyLayoutSettings();save()}
 function toggleCompactMode(){state.layout.compactMode=!state.layout.compactMode;applyLayoutSettings();save();setTimeout(jumpToday,30)}
 function toggleCompletedParents(){state.layout.hideCompletedParents=document.getElementById('hideCompletedParents').checked;save();render()}
-function saveProjectName(){state.projectName=document.getElementById('projectName').value.trim()||'名称未設定';render();toast('プロジェクト名を更新しました')}
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 function populateTaskSelects(currentId='') {
@@ -414,43 +411,6 @@ function renderTeam(){document.getElementById('teamList').innerHTML=state.member
 function addMember(){const input=document.getElementById('memberName'),name=input.value.trim();if(!name)return;state.members.push({id:uid(),name,color:document.getElementById('memberColor').value});input.value='';renderTeam();render();toast('担当者を追加しました')}
 function deleteMember(id){const m=member(id);if(!confirm(`${m.name}さんを担当者一覧から削除しますか？\n担当タスクは「未割当」になります。`))return;state.members=state.members.filter(x=>x.id!==id);state.tasks.forEach(t=>{if(t.owner===id)t.owner=''});if(activeOwner===id)activeOwner='all';renderTeam();render()}
 
-function goalMetrics(){
-  const leaves=state.tasks.filter((t,i)=>descendants(i).length===0);
-  const required=['purpose','deliverable','start','end','issue'];
-  const filled=leaves.reduce((sum,t)=>sum+required.filter(key=>String(t[key]||'').trim()).length,0);
-  const coverage=leaves.length?Math.round(filled/(leaves.length*required.length)*100):0;
-  const risks=leaves.filter(t=>t.delayRisk);
-  const shared=risks.filter(t=>t.advanceShared).length;
-  const shareRate=risks.length?Math.round(shared/risks.length*100):null;
-  const overdue=leaves.filter(t=>t.status!=='done'&&Number(t.progress)<100&&t.end<localDate()&&!t.deadlineAdjusted).length;
-  const start=state.goal.periodStart||localDate().slice(0,7), startDate=`${start}-01`, endDate=addDays(localDate(new Date(new Date(`${startDate}T00:00:00`).setMonth(new Date(`${startDate}T00:00:00`).getMonth()+6))),-1);
-  const checks=state.goal.monthlyChecks.filter(x=>x.month>=start&&`${x.month}-01`<=endDate);
-  return {domains:state.goal.domains.length,checks:new Set(checks.map(x=>x.month)).size,coverage,shareRate,risks:risks.length,shared,overdue,leaves:leaves.length,start,end:endDate.slice(0,7)};
-}
-function kpiCard(name,value,unit,target,ratio,color,stateText){
-  return `<article class="kpi-card" style="--kpi-color:${color}"><div class="kpi-name">${name}</div><div class="kpi-value"><strong>${value}</strong><span>${unit}</span></div><div class="kpi-target">目標：${target}</div><div class="kpi-meter"><span style="--meter:${Math.max(0,Math.min(100,ratio))}%"></span></div><div class="kpi-state">${stateText}</div></article>`;
-}
-function renderGoal(){
-  state.goal=state.goal||defaultGoal();const m=goalMetrics();
-  document.getElementById('goalTitle').textContent=`目標1：${state.goal.title}`;
-  document.getElementById('goalPeriodStart').value=m.start;document.getElementById('goalPeriodLabel').textContent=`${m.start.replace('-','年')}月 ～ ${m.end.replace('-','年')}月`;
-  document.getElementById('kpiGrid').innerHTML=[
-    kpiCard('PP様担当領域の概要整理',m.domains,'領域','1領域以上',m.domains*100,'#7158e8',m.domains>=1?'達成':'未達'),
-    kpiCard('月次確認',m.checks,'回','半期6回程度',m.checks/6*100,'#00aeba',m.checks>=6?'達成':`${6-m.checks}回必要`),
-    kpiCard('管理項目の記載率',m.coverage,'%','80%以上',m.coverage,'#ff4fb8',m.coverage>=80?'達成':'要入力'),
-    kpiCard('事前共有率',m.shareRate===null?'—':m.shareRate,m.shareRate===null?'':'%','100%',m.shareRate===null?0:m.shareRate,'#ff9838',m.shareRate===null?'対象なし':m.shareRate>=100?'達成':`${m.shared}/${m.risks}件`),
-    kpiCard('未調整の期限超過',m.overdue,'件','0件',m.overdue===0?100:0,'#ef4b67',m.overdue===0?'達成':'要対応')
-  ].join('');
-  renderDomainList();renderMonthlyList();
-}
-function openGoalModal(){document.getElementById('checkMonth').value=localDate().slice(0,7);renderGoal();openModal('goalModal')}
-function updateGoalPeriod(){state.goal.periodStart=document.getElementById('goalPeriodStart').value||localDate().slice(0,7);save();renderGoal()}
-function addDomain(){const name=document.getElementById('domainName').value.trim(),note=document.getElementById('domainNote').value.trim();if(!name||!note){toast('領域名と理解した要点を入力してください');return}state.goal.domains.push({id:uid(),name,note,date:localDate()});document.getElementById('domainName').value='';document.getElementById('domainNote').value='';save();renderGoal();toast('担当領域を記録しました')}
-function renderDomainList(){document.getElementById('domainList').innerHTML=state.goal.domains.length?state.goal.domains.map(x=>`<div class="activity-item"><span class="activity-icon">領</span><div class="item-grow"><strong>${esc(x.name)}</strong><small>${esc(x.note)} · ${jpDate(x.date)}</small></div><button onclick="deleteGoalEntry('domain','${x.id}')">×</button></div>`).join(''):'<div class="activity-empty">担当領域の記録はまだありません</div>'}
-function addMonthlyCheck(){const month=document.getElementById('checkMonth').value,note=document.getElementById('checkNote').value.trim();if(!month||!note){toast('対象月と確認内容を入力してください');return}state.goal.monthlyChecks.push({id:uid(),month,note,date:localDate()});document.getElementById('checkNote').value='';save();renderGoal();toast('月次確認を記録しました')}
-function renderMonthlyList(){const list=state.goal.monthlyChecks.slice().sort((a,b)=>b.month.localeCompare(a.month));document.getElementById('monthlyList').innerHTML=list.length?list.map(x=>`<div class="activity-item"><span class="activity-icon">${x.month.slice(5)}</span><div class="item-grow"><strong>${x.month.replace('-','年')}月の確認</strong><small>${esc(x.note)}</small></div><button onclick="deleteGoalEntry('monthly','${x.id}')">×</button></div>`).join(''):'<div class="activity-empty">月次確認の記録はまだありません</div>'}
-function deleteGoalEntry(type,id){if(!confirm('この記録を削除しますか？'))return;if(type==='domain')state.goal.domains=state.goal.domains.filter(x=>x.id!==id);else state.goal.monthlyChecks=state.goal.monthlyChecks.filter(x=>x.id!==id);save();renderGoal()}
-
 const REPORT_STATUS={todo:'未',doing:'中',review:'確認',done:'済',blocked:'保留'};
 function reportDate(value){
   if(!value)return '--/--';
@@ -459,16 +419,30 @@ function reportDate(value){
   return `${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;
 }
 function reportLine(value){return String(value||'').replace(/\r?\n/g,' ').trim()}
-function buildCustomerReport(){
-  const lines=[];
-  let includeGroup=false,parentCount=0,taskCount=0;
-  state.tasks.forEach((task,index)=>{
-    if(task.level===0){
-      const parent=displayTask(task,index);
-      includeGroup=Number(parent.progress)<100&&parent.status!=='done';
-      if(includeGroup)parentCount++;
+function reportIndexes(ownerId){
+  const included=new Set();
+  for(let parentIndex=0;parentIndex<state.tasks.length;parentIndex++){
+    const parentTask=state.tasks[parentIndex];if(parentTask.level!==0)continue;
+    const end=subtreeEndIndex(parentIndex),parent=displayTask(parentTask,parentIndex);
+    if(Number(parent.progress)>=100||parent.status==='done'){parentIndex=end-1;continue}
+    if(ownerId==='all')for(let i=parentIndex;i<end;i++)included.add(i);
+    else{
+      for(let i=parentIndex;i<end;i++){
+        const taskOwner=state.tasks[i].owner||'__unassigned__';
+        if(String(taskOwner)!==String(ownerId))continue;
+        included.add(i);let level=state.tasks[i].level;
+        for(let j=i-1;j>=parentIndex&&level>0;j--)if(state.tasks[j].level<level){included.add(j);level=state.tasks[j].level}
+      }
     }
-    if(!includeGroup)return;
+    parentIndex=end-1;
+  }
+  return [...included].sort((a,b)=>a-b);
+}
+function buildCustomerReport(ownerId='all'){
+  const lines=[],indexes=reportIndexes(ownerId);
+  const parentCount=indexes.filter(index=>state.tasks[index].level===0).length;
+  indexes.forEach(index=>{
+    const task=state.tasks[index];
     const shown=displayTask(task,index);
     const title=reportLine(task.title)||'名称未設定';
     const status=REPORT_STATUS[shown.status]||REPORT_STATUS.todo;
@@ -476,28 +450,33 @@ function buildCustomerReport(){
     const memoLines=String(task.memo||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
     memoLines.forEach(line=>lines.push(`- ${line}`));
     if(memoLines.length)lines.push('');
-    taskCount++;
   });
   if(!parentCount)lines.push('# 対応中の親タスクはありません','');
-  return {text:`${lines.join('\r\n').trimEnd()}\r\n`,parentCount,taskCount};
+  return {text:`${lines.join('\r\n').trimEnd()}\r\n`,parentCount,taskCount:indexes.length};
 }
-function openCustomerReport(){
-  const report=buildCustomerReport();
+function updateCustomerReportPreview(){
+  const ownerId=document.getElementById('reportOwner').value||'all',report=buildCustomerReport(ownerId);
   document.getElementById('customerReportPreview').value=report.text;
   document.getElementById('reportTaskCount').textContent=`未完了の親 ${report.parentCount}件 / 出力タスク ${report.taskCount}件`;
+}
+function openCustomerReport(){
+  const select=document.getElementById('reportOwner'),current=select.value;
+  const unassigned=state.tasks.some(t=>!t.owner)?'<option value="__unassigned__">未割当</option>':'';
+  select.innerHTML=`<option value="all">全担当者</option>${state.members.map(m=>`<option value="${esc(String(m.id))}">${esc(m.name)}</option>`).join('')}${unassigned}`;
+  const currentExists=current==='all'||current==='__unassigned__'||state.members.some(m=>String(m.id)===String(current));
+  select.value=currentExists?current:(activeOwner!=='all'?activeOwner:state.members[0]?.id||'all');
+  updateCustomerReportPreview();
   openModal('customerReportModal');
 }
 function downloadCustomerReport(){
-  const report=buildCustomerReport();
-  const safeName=String(state.projectName||'project').replace(/[\\/:*?"<>|]/g,'_');
+  const ownerId=document.getElementById('reportOwner').value||'all',report=buildCustomerReport(ownerId),ownerName=ownerId==='all'?'全担当者':ownerId==='__unassigned__'?'未割当':member(ownerId).name;
+  const safeOwner=String(ownerName).replace(/[\\/:*?"<>|]/g,'_');
   const blob=new Blob(['\uFEFF',report.text],{type:'text/plain;charset=utf-8'}),a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);a.download=`${safeName}_進捗レポート_${localDate().replaceAll('-','')}.txt`;a.click();URL.revokeObjectURL(a.href);
-  document.getElementById('customerReportPreview').value=report.text;
-  document.getElementById('reportTaskCount').textContent=`未完了の親 ${report.parentCount}件 / 出力タスク ${report.taskCount}件`;
-  toast('お客様レポートを書き出しました');
+  a.href=URL.createObjectURL(blob);a.download=`${safeOwner}_進捗レポート_${localDate().replaceAll('-','')}.txt`;a.click();URL.revokeObjectURL(a.href);
+  updateCustomerReportPreview();toast(`${ownerName}のレポートを書き出しました`);
 }
-function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`teamflow-${localDate()}.json`;a.click();URL.revokeObjectURL(a.href);toast('バックアップを書き出しました')}
-function importData(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);if(!Array.isArray(data.tasks))throw new Error();state=data;state.goal=state.goal||defaultGoal();state.layout=state.layout||{sidebarCollapsed:false,compactMode:false};if(typeof state.layout.hideCompletedParents!=='boolean')state.layout.hideCompletedParents=true;activeOwner='all';applyLayoutSettings();render();toast('データを復元しました')}catch(e){toast('読み込めるJSON形式ではありません')}};reader.readAsText(file);event.target.value=''}
+function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`teamflow-backup-${localDate()}.json`;a.click();URL.revokeObjectURL(a.href);toast('バックアップを書き出しました')}
+function importData(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);if(!Array.isArray(data.tasks))throw new Error();state=prepareState(data);activeOwner='all';applyLayoutSettings();render();toast('データを復元しました')}catch(e){toast('読み込めるJSON形式ではありません')}};reader.readAsText(file);event.target.value=''}
 let toastTimer;function toast(message){const el=document.getElementById('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2200)}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-backdrop.open').forEach(x=>x.classList.remove('open'))});
 document.addEventListener('pointermove',movePointerReorder);
