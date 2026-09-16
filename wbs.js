@@ -248,14 +248,20 @@ function drawDependencies(visible,start) {
     const t=state.tasks[index],dt=displayTask(t,index), left=daysBetween(start,dt.start)*DAY_WIDTH+4, width=Math.max(12,(daysBetween(dt.start,dt.end)+1)*DAY_WIDTH-8);
     pos.set(String(t.id),{x1:left,x2:left+width,y:row*ROW_HEIGHT+ROW_HEIGHT/2});
   });
-  let paths=`<defs><marker id="arrowhead" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#7562dc"/></marker></defs>`;
+  let paths=`<defs><marker id="arrowhead" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#6654d9"/></marker><marker id="arrowhead-conflict" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#f08b2f"/></marker></defs>`;
   visible.forEach(index=>{
     const t=state.tasks[index],from=pos.get(String(t.dependency)),to=pos.get(String(t.id)); if(!from||!to)return;
-    const bend=Math.max(from.x2+12,Math.min(to.x1-12,(from.x2+to.x1)/2));
-    const path=`M ${from.x2} ${from.y} L ${bend} ${from.y} L ${bend} ${to.y} L ${to.x1-3} ${to.y}`;
-    paths+=`<path class="dependency-hit" d="${path}" data-target-id="${esc(String(t.id))}" onclick="removeDependency(this.dataset.targetId)"><title>クリックして接続を解除</title></path><path class="dependency-line" d="${path}"/>`;
+    const direction=to.y>from.y?1:-1,turnY=from.y+direction*ROW_HEIGHT/2,exitX=from.x2+11,entryX=to.x1-12;
+    const path=`M ${from.x2} ${from.y} H ${exitX} V ${turnY} H ${entryX} V ${to.y} H ${to.x1-3}`;
+    const conflict=to.x1<from.x2,sourceId=esc(String(t.dependency)),targetId=esc(String(t.id));
+    const help=conflict?'日程が重複しています。クリックして接続を解除':'クリックして接続を解除';
+    paths+=`<path class="dependency-hit" d="${path}" data-source-id="${sourceId}" data-target-id="${targetId}" onpointerenter="highlightDependency(this.dataset.sourceId,this.dataset.targetId,true)" onpointerleave="highlightDependency(this.dataset.sourceId,this.dataset.targetId,false)" onclick="removeDependency(this.dataset.targetId)"><title>${help}</title></path><path class="dependency-line ${conflict?'dependency-conflict':''}" d="${path}"/><circle class="dependency-node ${conflict?'dependency-conflict-node':''}" cx="${from.x2}" cy="${from.y}" r="3.5"/><circle class="dependency-node dependency-target-node ${conflict?'dependency-conflict-node':''}" cx="${to.x1-3}" cy="${to.y}" r="3.5"/>`;
   });
   svg.innerHTML=paths;
+}
+function highlightDependency(sourceId,targetId,active){
+  const source=document.querySelector(`.gantt-bar[data-bar-id="${CSS.escape(String(sourceId))}"]`),target=document.querySelector(`.gantt-bar[data-bar-id="${CSS.escape(String(targetId))}"]`);
+  source?.classList.toggle('dependency-related-source',active);target?.classList.toggle('dependency-related-target',active);
 }
 function removeDependency(targetId){
   const target=taskById(targetId);if(!target||!target.dependency)return;
