@@ -12,6 +12,7 @@ let rangeOffset = 0;
 let activeOwner = 'all';
 let dragState = null;
 let pointerDrag = null;
+let dependencyDrag = null;
 let state = loadState();
 state.goal = state.goal || defaultGoal();
 state.layout = state.layout || {sidebarCollapsed:false,compactMode:false};
@@ -231,7 +232,7 @@ function ganttRow(t,index,start,totalDays) {
   const dt=displayTask(t,index), left=daysBetween(start,dt.start)*DAY_WIDTH+4;
   const width=Math.max(12,(daysBetween(dt.start,dt.end)+1)*DAY_WIDTH-8), m=member(t.owner), due=dueClass(dt);
   const visible=left+width>0&&left<totalDays*DAY_WIDTH;
-  return `<div class="gantt-row week-pattern" data-task-id="${t.id}">${visible?`<div class="gantt-bar ${due}" data-bar-id="${t.id}" onclick="openTask('${t.id}')" style="left:${left}px;width:${width}px;--bar:${m.color};--progress:${Math.max(0,Math.min(100,dt.progress))}%"><span>${esc(t.title)}</span></div>`:''}</div>`;
+  return `<div class="gantt-row week-pattern" data-task-id="${t.id}">${visible?`<div class="gantt-bar ${due}" data-bar-id="${t.id}" onclick="openTask('${t.id}')" style="left:${left}px;width:${width}px;--bar:${m.color};--progress:${Math.max(0,Math.min(100,dt.progress))}%"><span>${esc(t.title)}</span><button class="dependency-handle" title="ここから後続タスクへドラッグして接続" aria-label="${esc(t.title)}から後続タスクへ接続" onpointerdown="startDependencyDrag(event,'${t.id}')" onclick="event.stopPropagation()"></button></div>`:''}</div>`;
 }
 function renderMilestoneMarkers(start,totalDays,height) {
   return state.milestones.map((m,i)=>{
@@ -251,9 +252,68 @@ function drawDependencies(visible,start) {
   visible.forEach(index=>{
     const t=state.tasks[index],from=pos.get(String(t.dependency)),to=pos.get(String(t.id)); if(!from||!to)return;
     const bend=Math.max(from.x2+12,Math.min(to.x1-12,(from.x2+to.x1)/2));
-    paths+=`<path class="dependency-line" d="M ${from.x2} ${from.y} L ${bend} ${from.y} L ${bend} ${to.y} L ${to.x1-3} ${to.y}"/>`;
+    const path=`M ${from.x2} ${from.y} L ${bend} ${from.y} L ${bend} ${to.y} L ${to.x1-3} ${to.y}`;
+    paths+=`<path class="dependency-hit" d="${path}" data-target-id="${esc(String(t.id))}" onclick="removeDependency(this.dataset.targetId)"><title>クリックして接続を解除</title></path><path class="dependency-line" d="${path}"/>`;
   });
   svg.innerHTML=paths;
+}
+function removeDependency(targetId){
+  const target=taskById(targetId);if(!target||!target.dependency)return;
+  const source=taskById(target.dependency),sourceName=source?.title||'先行タスク';
+  if(!confirm(`「${sourceName}」→「${target.title}」の接続を解除しますか？`))return;
+  target.dependency='';render();toast('タスクの接続を解除しました');
+}
+function dependencyCreatesCycle(sourceId,targetId){
+  let current=taskById(sourceId),guard=0;
+  while(current&&current.dependency&&guard++<state.tasks.length){
+    if(String(current.dependency)===String(targetId))return true;
+    current=taskById(current.dependency);
+  }
+  return false;
+}
+function dependencyTargetAt(clientX,clientY,sourceId){
+  const bar=document.elementFromPoint(clientX,clientY)?.closest('.gantt-bar');
+  if(!bar)return null;
+  const targetId=bar.dataset.barId;
+  if(String(targetId)===String(sourceId)||dependencyCreatesCycle(sourceId,targetId))return null;
+  return bar;
+}
+function drawDependencyDraft(event,targetBar){
+  const svg=document.getElementById('dependencySvg'),pane=document.getElementById('ganttPane'),sourceBar=document.querySelector(`.gantt-bar[data-bar-id="${CSS.escape(String(dependencyDrag.sourceId))}"]`);
+  if(!svg||!pane||!sourceBar)return;
+  svg.querySelector('.dependency-draft')?.remove();
+  const paneRect=pane.getBoundingClientRect(),sourceRect=sourceBar.getBoundingClientRect();
+  const x1=sourceRect.right-paneRect.left,y1=sourceRect.top-paneRect.top+sourceRect.height/2;
+  let x2=event.clientX-paneRect.left,y2=event.clientY-paneRect.top;
+  if(targetBar){const rect=targetBar.getBoundingClientRect();x2=rect.left-paneRect.left-3;y2=rect.top-paneRect.top+rect.height/2}
+  const bend=Math.max(x1+12,Math.min(x2-12,(x1+x2)/2));
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('class','dependency-line dependency-draft');path.setAttribute('d',`M ${x1} ${y1} L ${bend} ${y1} L ${bend} ${y2} L ${x2} ${y2}`);svg.appendChild(path);
+}
+function moveDependencyDrag(event){
+  if(!dependencyDrag||event.pointerId!==dependencyDrag.pointerId)return;
+  event.preventDefault();document.querySelectorAll('.gantt-bar.dependency-target').forEach(x=>x.classList.remove('dependency-target'));
+  const targetBar=dependencyTargetAt(event.clientX,event.clientY,dependencyDrag.sourceId);
+  dependencyDrag.targetId=targetBar?.dataset.barId||null;targetBar?.classList.add('dependency-target');drawDependencyDraft(event,targetBar);
+}
+function finishDependencyDrag(event,cancelled=false){
+  if(!dependencyDrag||event.pointerId!==dependencyDrag.pointerId)return;
+  const {sourceId,targetId}=dependencyDrag;dependencyDrag=null;document.body.classList.remove('dependency-linking');
+  document.querySelectorAll('.gantt-bar.dependency-source,.gantt-bar.dependency-target').forEach(x=>x.classList.remove('dependency-source','dependency-target'));
+  document.querySelector('.dependency-draft')?.remove();
+  if(cancelled||!targetId)return;
+  const target=taskById(targetId);if(!target)return;
+  target.dependency=sourceId;render();toast(`「${taskById(sourceId)?.title||'先行タスク'}」→「${target.title}」を接続しました`);
+}
+function startDependencyDrag(event,sourceId){
+  if(event.button!==0)return;
+  event.preventDefault();event.stopPropagation();
+  dependencyDrag={sourceId,pointerId:event.pointerId,targetId:null};document.body.classList.add('dependency-linking');
+  event.currentTarget.setPointerCapture(event.pointerId);event.currentTarget.closest('.gantt-bar')?.classList.add('dependency-source');
+  event.currentTarget.addEventListener('pointermove',moveDependencyDrag);
+  event.currentTarget.addEventListener('pointerup',finishDependencyDrag,{once:true});
+  event.currentTarget.addEventListener('pointercancel',event=>finishDependencyDrag(event,true),{once:true});
+  drawDependencyDraft(event,null);
 }
 function render() {
   normalizedLevels();
@@ -327,8 +387,16 @@ function saveTask(event){
   normalizedLevels();closeModal('taskModal');render();toast(id?'タスクを更新しました':'タスクを追加しました');
 }
 function deleteCurrentTask(){
-  const id=document.getElementById('editId').value,t=taskById(id);if(!t||!confirm(`「${t.title}」を削除しますか？`))return;
-  state.tasks=state.tasks.filter(x=>String(x.id)!==String(id));state.tasks.forEach(x=>{if(String(x.dependency)===String(id))x.dependency=''});closeModal('taskModal');render();toast('タスクを削除しました');
+  const id=document.getElementById('editId').value,index=state.tasks.findIndex(x=>String(x.id)===String(id));
+  if(index<0)return;
+  const task=state.tasks[index],end=subtreeEndIndex(index),targets=state.tasks.slice(index,end);
+  const childCount=targets.length-1;
+  const message=childCount?`「${task.title}」と配下のタスク ${childCount}件を削除しますか？`:`「${task.title}」を削除しますか？`;
+  if(!confirm(message))return;
+  const deletedIds=new Set(targets.map(x=>String(x.id)));
+  state.tasks.splice(index,targets.length);
+  state.tasks.forEach(x=>{if(deletedIds.has(String(x.dependency)))x.dependency=''});
+  closeModal('taskModal');render();toast(childCount?`タスクを配下 ${childCount}件と一緒に削除しました`:'タスクを削除しました');
 }
 
 function openMilestoneModal(){document.getElementById('milestoneDate').value=addDays(localDate(),7);renderMilestones();openModal('milestoneModal')}
